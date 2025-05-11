@@ -60,6 +60,7 @@ enum class material_e { JFluid, JFluid_ASFLIP, JFluid_FBAR, JBarFluid,
                         NACC, 
                         CoupledUP,
                         Meshed,
+                        VonMises,
                         Total };
 
 /// * Available FEM element types
@@ -95,7 +96,7 @@ namespace config /// * Simulation config setup and name-space
 // ! You will get errors if exceeding num. of:
 // ! (i) Physical GPUs, check 'nvidia-smi' in terminal, (ii) Max. compiled particle models per GPU
 constexpr int g_device_cnt = 1; //< IMPORTANT. Num. GPUs to compile for. Default 1.
-constexpr int g_models_per_gpu = 3; //< IMPORTANT. Max num. particle models per GPU. Default 1.
+constexpr int g_models_per_gpu = 2; //< IMPORTANT. Max num. particle models per GPU. Default 1.
 constexpr uint32_t g_model_cnt = g_device_cnt * g_models_per_gpu; //< Max num. particle models on node
 
 // * Output set-up
@@ -140,7 +141,7 @@ constexpr int32_t constCeil(float num) {
 constexpr double g_length   = 1.0; //< Default domain full length (m)
 constexpr double g_volume   = g_length * g_length * g_length; //< Default domain max volume [m^3]
 constexpr double g_length_x = g_length / 1.0; //< Default domain x length (m)
-constexpr double g_length_y = g_length / 8.0; //< Default domain y length (m)
+constexpr double g_length_y = g_length / 1.0; //< Default domain y length (m)
 constexpr double g_length_z = g_length / 8.0; //< Default domain z length (m)
 constexpr double g_domain_volume = g_length * g_length * g_length;
 constexpr double g_grid_ratio_x = g_length_x / g_length; //< Domain x ratio
@@ -161,10 +162,10 @@ constexpr std::size_t g_max_halo_block = 1024 * 4; //< Max active halo blocks be
 constexpr int g_num_grid_blocks_per_cuda_block = GBPCB;
 constexpr int g_num_warps_per_grid_block = 1;
 constexpr int g_num_warps_per_cuda_block = g_num_warps_per_grid_block * g_num_grid_blocks_per_cuda_block;
-constexpr int g_max_active_block = 25000; //< Max active blocks in gridBlocks. Preallocated, can resize. Lower = less memory used.
+constexpr int g_max_active_block = 10000; //< Max active blocks in gridBlocks. Preallocated, can resize. Lower = less memory used.
 
 // * Particles
-#define MAX_PPC 64 //< VERY important. Max particles-per-cell. Must be a power of two, e.g. 16, 32, 64. Substantially effects memory/performance. Exceeding MAX_PPC deletes particles. Generally, use MAX_PPC = 8*(Actual PPC) to account for compression, if nearly incompressible materials this isn't as neccesary. 64 is usually reliable as default.
+#define MAX_PPC 128 //< VERY important. Max particles-per-cell. Must be a power of two, e.g. 16, 32, 64. Substantially effects memory/performance. Exceeding MAX_PPC deletes particles. Generally, use MAX_PPC = 8*(Actual PPC) to account for compression, if nearly incompressible materials this isn't as neccesary. 64 is usually reliable as default.
 constexpr int g_max_ppc = MAX_PPC; //< Max particles per cell
 constexpr bool is_powerof2(int val) {
     return val && ((val & (val - 1)) == 0);
@@ -263,7 +264,8 @@ struct MaterialConfigs {
   PREC xi;
   bool hardeningOn;
   PREC rhow, alpha1, poro, Kf, Ks, Kperm;
-  MaterialConfigs() : ppc(8.0), rho(1e3), bulk(2.2e7), visco(1e-3), gamma(7.1), E{1e7}, nu{0.3}, logJp0(0.), frictionAngle(30.), cohesion(0.), beta(0.5), volumeCorrection(false), xi(1.0), hardeningOn(true), rhow(1e3), alpha1(1.0), poro(0.2), Kf(1.0e7), Ks(2.2e7), Kperm(1.0e-5) {}
+  PREC tensile_yield_strength;
+  MaterialConfigs() : ppc(8.0), rho(1e3), bulk(2.2e7), visco(1e-3), gamma(7.1), E{1e7}, nu{0.3}, logJp0(0.), frictionAngle(30.), cohesion(0.), beta(0.5), volumeCorrection(false), xi(1.0), hardeningOn(true), rhow(1e3), alpha1(1.0), poro(0.2), Kf(1.0e7), Ks(2.2e7), Kperm(1.0e-5), tensile_yield_strength(2.0e6) {}
   ~MaterialConfigs() {}
 };
 

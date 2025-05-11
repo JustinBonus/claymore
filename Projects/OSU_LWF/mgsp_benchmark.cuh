@@ -958,7 +958,16 @@ struct mgsp_benchmark {
 
               // Grid-to-Particle-to-Grid - g2p2g 
               if (!pb.use_ASFLIP && !pb.use_FEM && !pb.use_FBAR) {
-                fmt::print("GPU[{}] ERROR: Still need to reimplement g2p2g without ASFLIP, FBAR, or FEM. Try turning on ASFLIP or FBAR.\n", did);
+                // fmt::print("GPU[{}] ERROR: Still need to reimplement g2p2g without ASFLIP, FBAR, or FEM. Try turning on ASFLIP or FBAR.\n", did);
+                if (partitions[rollid][did].h_count) {
+                  cuDev.compute_launch(
+                      {partitions[rollid][did].h_count, g_particle_batch, (3 + 4) * (g_blockvolume << 3) * sizeof(PREC_G)},
+                      g2p2g, dt, nextDt,
+                      (const ivec3 *)partitions[rollid][did]._haloBlocks, pb,
+                      get<typename std::decay_t<decltype(pb)>>(particleBins[rollid ^ 1][did][mid]),
+                      partitions[rollid ^ 1][did], partitions[rollid][did],
+                      gridBlocks[0][did], gridBlocks[1][did]);
+                }
               }
 
               // Grid-to-Particle-to-Grid - g2p2g 
@@ -1231,7 +1240,7 @@ struct mgsp_benchmark {
 
 
               // Grid-to-Particle-to-Grid - No ASFLIP -- Default MLS-MPM Version
-              if (!pb.use_ASFLIP  && !pb.use_FEM && !pb.use_FBAR) {
+              if (!pb.use_ASFLIP && !pb.use_FEM && !pb.use_FBAR) {
                 int shmem = (3 + 4) * (512 * sizeof(PREC_G));
                 cuDev.compute_launch(
                     {pbcnt[did], g_particle_batch, shmem}, g2p2g, dt,

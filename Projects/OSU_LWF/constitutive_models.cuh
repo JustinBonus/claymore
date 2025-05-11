@@ -8,6 +8,113 @@
 namespace mn {
 
 
+template <typename T = double>
+__forceinline__ __device__ void
+compute_stress_vonmises(T volume, T mu, T lambda, T tensile_yield_strength, const vec<T, 9> &F,
+                            vec<T, 9> &PF) {
+
+  // Von Mises Cauchy stress. https://en.wikipedia.org/wiki/Von_Mises_yield_criterion
+  // Von mises strength, sigma_v = Tensile yield strength, sigma_y = (yield stress in pure shear, k) * sqrt(3) = sqrt(J2, the second invariant of the deviatoric stress tensor) * sqrt(3)
+  // yield stress in pure shear, k = sqrt(second invariant of the deviatoric stress tensor, J2)
+  // (von mises strength)^2 = (1/2) * [(sigma11 - sigma22)^2 + (sigma22 - sigma33)^2 + (sigma33 - sigma11)^2 + 6 * (sigma12^2 + sigma23^2 + sigma31^2)] = (3/2) sij sij, where s is the deviatoric stress
+  // Radius of yield circle on deviatoric plane = sqrt(3/2) * (tensile yield strength, sigma_y) = sqrt(2) * (yield stress in pure shear, k)
+  vec<T, 9> Finv;
+  matrixInverse(F.data(), Finv.data());
+
+  T J = matrixDeterminant3d(F.data());
+  T logJ = log(J);
+
+  // P  = mu * (F - F^-T) + lambda * log(J) * F^-T
+  vec<T, 9> P;
+  P[0] = mu * (F[0] - Finv[0]) + lambda * (J - 1) * J * Finv[0];
+  P[1] = mu * (F[1] - Finv[3]) + lambda * (J - 1) * J * Finv[3];
+  P[2] = mu * (F[2] - Finv[6]) + lambda * (J - 1) * J * Finv[6];
+  P[3] = mu * (F[3] - Finv[1]) + lambda * (J - 1) * J * Finv[1];
+  P[4] = mu * (F[4] - Finv[4]) + lambda * (J - 1) * J * Finv[4];
+  P[5] = mu * (F[5] - Finv[7]) + lambda * (J - 1) * J * Finv[7];
+  P[6] = mu * (F[6] - Finv[2]) + lambda * (J - 1) * J * Finv[2];
+  P[7] = mu * (F[7] - Finv[5]) + lambda * (J - 1) * J * Finv[5];
+  P[8] = mu * (F[8] - Finv[8]) + lambda * (J - 1) * J * Finv[8];
+
+  /// Cauchy = J^-1 PK1 F^T
+  PF[0] = (P[0] * F[0] + P[3] * F[3] + P[6] * F[6]); // May need to check J
+  PF[1] = (P[1] * F[0] + P[4] * F[3] + P[7] * F[6]);
+  PF[2] = (P[2] * F[0] + P[5] * F[3] + P[8] * F[6]);
+  PF[3] = (P[0] * F[1] + P[3] * F[4] + P[6] * F[7]);
+  PF[4] = (P[1] * F[1] + P[4] * F[4] + P[7] * F[7]);
+  PF[5] = (P[2] * F[1] + P[5] * F[4] + P[8] * F[7]);
+  PF[6] = (P[0] * F[2] + P[3] * F[5] + P[6] * F[8]);
+  PF[7] = (P[1] * F[2] + P[4] * F[5] + P[7] * F[8]);
+  PF[8] = (P[2] * F[2] + P[5] * F[5] + P[8] * F[8]);
+
+  // Ensure does not exceed yield strength
+  T yield_strength = sqrt(3.0 / 2.0) * tensile_yield_strength;
+  T yield_strength_squared = yield_strength * yield_strength;
+  T stress_squared = (0.5) * ( (PF[0] - PF[4]) * (PF[0] - PF[4]) +
+                              (PF[4] - PF[8]) * (PF[4] - PF[8]) +
+                              (PF[8] - PF[0]) * (PF[8] - PF[0]) +
+                              6.0 * (PF[1] * PF[1] + PF[2] * PF[2] + PF[5] * PF[5]));
+  
+  T deviatoric_stress_magnitude = stress_squared > 0.0 ? sqrt(stress_squared) : 0.0;
+
+  T scale = volume;
+  if (deviatoric_stress_magnitude > yield_strength) {
+    // Scale back to yield strength
+    scale *= yield_strength / deviatoric_stress_magnitude;
+  }
+  PF[0] *= scale;
+  PF[1] *= scale;
+  PF[2] *= scale;
+  PF[3] *= scale;
+  PF[4] *= scale;
+  PF[5] *= scale;
+  PF[6] *= scale;
+  PF[7] *= scale;
+  PF[8] *= scale;
+
+}
+
+// template <typename T = double>
+// __forceinline__ __device__ void
+// compute_stress_PK1_vonmises(T volume, T mu, T lambda, const vec<T, 9> &F,
+//                             vec<T, 9> &P) {
+//   // Von Mises Cauchy stress. Page 90 UCLA MPM course Jiang et al.
+//   vec<T, 9> Finv;
+//   matrixInverse(F.data(), Finv.data());
+
+//   T J = matrixDeterminant3d(F.data());
+//   T logJ = log(J);
+
+//   // P  = mu * (F - F^-T) + lambda * log(J) * F^-T
+//   P[0] = mu * (F[0] - Finv[0]) + lambda * logJ * Finv[0] * volume;
+//   P[1] = mu * (F[1] - Finv[3]) + lambda * logJ * Finv[3] * volume;
+//   P[2] = mu * (F[2] - Finv[6]) + lambda * logJ * Finv[6] * volume;
+//   P[3] = mu * (F[3] - Finv[1]) + lambda * logJ * Finv[1] * volume;
+//   P[4] = mu * (F[4] - Finv[4]) + lambda * logJ * Finv[4] * volume;
+//   P[5] = mu * (F[5] - Finv[7]) + lambda * logJ * Finv[7] * volume;
+//   P[6] = mu * (F[6] - Finv[2]) + lambda * logJ * Finv[2] * volume;
+//   P[7] = mu * (F[7] - Finv[5]) + lambda * logJ * Finv[5] * volume;
+//   P[8] = mu * (F[8] - Finv[8]) + lambda * logJ * Finv[8] * volume;
+// }
+
+// template <typename T = double>
+// __forceinline__ __device__ void
+// compute_energy_vonmises(T volume, T mu, T lambda, const vec<T, 9> &F,
+//                         T &strain_energy) {
+//   // Von Mises strain potential energy. Page 90 UCLA MPM course Jiang et al.
+//   // ABAQUS uses a slightly different formulation.
+//   T J = matrixDeterminant3d(F.data());
+//   T logJ = log(J);
+
+//   T C[3]; //< Left Cauchy Green Diagonal, F^T F
+//   // tr(F'F)
+//   C[0] = (F[0] * F[0] + F[1] * F[1] + F[2] * F[2]) ;
+//   C[1] = (F[3] * F[3] + F[4] * F[4] + F[5] * F[5]) ;
+//   C[2] = (F[6] * F[6] + F[7] * F[7] + F[8] * F[8]) ;
+//   strain_energy = (mu * (0.5*((C[0] + C[1] + C[2]) - 3) - logJ) + 0.5*lambda*logJ*logJ) * volume;
+// }
+
+
 /// * J-Fluid - Pressure, Stress, and Energy
 /// * Isotropic Tait-Murnaghan fluid, uses the deformation gradient determinant J
 template <typename T = double>
