@@ -7,7 +7,13 @@
 
 namespace mn {
 
-
+// Note: the following Von Mises yield criterion is not at all validated, nor is it what you probably expect
+// Basically it was a quick hack to allow easily controllable yielding based on the Von Mises yield circle
+// If the deviatoric stress exceeds the yield strength on the Pi plane, it is scaled back to the yield circle.
+// This is not physically what is standard, but it is a quick way to get something working.
+// Typically you would want a bilateral model with a tangent modulus, etc., not hard to implement if you have the time.
+// Here we throttle stress to disallow transgression of the yield circle using the tensile_yield_strength as user-input.
+// Because stress is throttle, the forces produced aren't able to resist all deformation so we get plasticity. 
 template <typename T = double>
 __forceinline__ __device__ void
 compute_stress_vonmises(T volume, T mu, T lambda, T tensile_yield_strength, const vec<T, 9> &F,
@@ -49,7 +55,6 @@ compute_stress_vonmises(T volume, T mu, T lambda, T tensile_yield_strength, cons
 
   // Ensure does not exceed yield strength
   T yield_strength = sqrt(3.0 / 2.0) * tensile_yield_strength;
-  T yield_strength_squared = yield_strength * yield_strength;
   T stress_squared = (0.5) * ( (PF[0] - PF[4]) * (PF[0] - PF[4]) +
                               (PF[4] - PF[8]) * (PF[4] - PF[8]) +
                               (PF[8] - PF[0]) * (PF[8] - PF[0]) +
@@ -60,6 +65,7 @@ compute_stress_vonmises(T volume, T mu, T lambda, T tensile_yield_strength, cons
   T scale = volume;
   if (deviatoric_stress_magnitude > yield_strength) {
     // Scale back to yield strength
+    // Note: maybe just apply to deviatoric stress, not total stress. But this material model isn't intended to be permanent regardless. To be replaced
     scale *= yield_strength / deviatoric_stress_magnitude;
   }
   PF[0] *= scale;
@@ -72,6 +78,59 @@ compute_stress_vonmises(T volume, T mu, T lambda, T tensile_yield_strength, cons
   PF[7] *= scale;
   PF[8] *= scale;
 
+}
+
+// TODO: This is for FixedCorotated, not VonMises
+template <typename T = double>
+__forceinline__ __device__ void
+compute_stress_PK1_vonmises(T volume, T mu, T lambda, const vec<T, 9> &F,
+                              vec<T, 9> &P) {
+  T U[9], S[3], V[9];
+  math::svd(F[0], F[3], F[6], F[1], F[4], F[7], F[2], F[5], F[8], U[0], U[3],
+            U[6], U[1], U[4], U[7], U[2], U[5], U[8], S[0], S[1], S[2], V[0],
+            V[3], V[6], V[1], V[4], V[7], V[2], V[5], V[8]);
+  T J = S[0] * S[1] * S[2];
+  T scaled_mu = 2.0 * mu;
+  T scaled_lambda = lambda * (J - 1.0);
+  vec<T, 3> P_hat;
+  P_hat[0] = scaled_mu * (S[0] - 1.0) + scaled_lambda * (S[1] * S[2]);
+  P_hat[1] = scaled_mu * (S[1] - 1.0) + scaled_lambda * (S[0] * S[2]);
+  P_hat[2] = scaled_mu * (S[2] - 1.0) + scaled_lambda * (S[0] * S[1]);
+
+  P[0] =
+      (P_hat[0] * U[0] * V[0] + P_hat[1] * U[3] * V[3] + P_hat[2] * U[6] * V[6]) * volume;
+  P[1] =
+      (P_hat[0] * U[1] * V[0] + P_hat[1] * U[4] * V[3] + P_hat[2] * U[7] * V[6]) * volume;
+  P[2] =
+      (P_hat[0] * U[2] * V[0] + P_hat[1] * U[5] * V[3] + P_hat[2] * U[8] * V[6]) * volume;
+  P[3] =
+      (P_hat[0] * U[0] * V[1] + P_hat[1] * U[3] * V[4] + P_hat[2] * U[6] * V[7]) * volume;
+  P[4] =
+      (P_hat[0] * U[1] * V[1] + P_hat[1] * U[4] * V[4] + P_hat[2] * U[7] * V[7]) * volume;
+  P[5] =
+      (P_hat[0] * U[2] * V[1] + P_hat[1] * U[5] * V[4] + P_hat[2] * U[8] * V[7]) * volume;
+  P[6] =
+      (P_hat[0] * U[0] * V[2] + P_hat[1] * U[3] * V[5] + P_hat[2] * U[6] * V[8]) * volume;
+  P[7] =
+      (P_hat[0] * U[1] * V[2] + P_hat[1] * U[4] * V[5] + P_hat[2] * U[7] * V[8]) * volume;
+  P[8] =
+      (P_hat[0] * U[2] * V[2] + P_hat[1] * U[5] * V[5] + P_hat[2] * U[8] * V[8]) * volume;
+}
+
+// TODO: This is for FixedCorotated, not VonMises
+template <typename T = double>
+__forceinline__ __device__ void
+compute_energy_vonmises(T volume, T mu, T lambda, const vec<T, 9> &F,
+                              T &strain_energy) {
+  T U[9], S[3], V[9];
+  math::svd(F[0], F[3], F[6], F[1], F[4], F[7], F[2], F[5], F[8], U[0], U[3],
+            U[6], U[1], U[4], U[7], U[2], U[5], U[8], S[0], S[1], S[2], V[0],
+            V[3], V[6], V[1], V[4], V[7], V[2], V[5], V[8]);
+  T J = S[0] * S[1] * S[2];
+
+  // Fixed-corotated potential strain energy. Page 90 UCLA MPM course Jiang et al.
+  strain_energy = (mu * ((S[0] - 1.0)*(S[0] - 1.0) + (S[1] - 1.0)*(S[1] - 1.0) +
+                        (S[2] - 1.0)*(S[2] - 1.0)) + 0.5 * lambda*(J - 1.0)*(J - 1.0)) * volume;
 }
 
 // template <typename T = double>

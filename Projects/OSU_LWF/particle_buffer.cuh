@@ -2119,34 +2119,34 @@ struct ParticleBuffer<material_e::VonMises>
   template <typename T = PREC>
    __device__ constexpr void
   getStress_Cauchy(const vec<T,9>& F, vec<T,9>& PF){
-    compute_stress_fixedcorotated(volume, mu, lambda, F, PF);
+    compute_stress_vonmises(volume, mu, lambda, tensile_yield_strength, F, PF);
   }
   template <typename T = PREC>
    __device__ constexpr void
   getStress_Cauchy(T vol, const vec<T,9>& F, vec<T,9>& PF){
-    compute_stress_fixedcorotated(vol, mu, lambda, F, PF);
+    compute_stress_vonmises(vol, mu, lambda, tensile_yield_strength, F, PF);
   }
   
   template <typename T = PREC>
    __device__ void
   getStress_PK1(const vec<T,9>& F, vec<T,9>& P){
-    compute_stress_PK1_fixedcorotated(volume, mu, lambda, F, P);
+    compute_stress_PK1_vonmises(volume, mu, lambda, F, P);
   }
   template <typename T = PREC>
    __device__ void
   getStress_PK1(T vol, const vec<T,9>& F, vec<T,9>& P){
-    compute_stress_PK1_fixedcorotated(vol, mu, lambda, F, P);
+    compute_stress_PK1_vonmises(vol, mu, lambda, F, P);
   }
 
   template <typename T = PREC>
    __device__ void
   getEnergy_Strain(const vec<T,9>& F, T& strain_energy, T vol){
-    compute_energy_fixedcorotated(vol, mu, lambda, F, strain_energy);
+    compute_energy_vonmises(vol, mu, lambda, F, strain_energy);
   }
   template <typename T = PREC>
    __device__ void
   getEnergy_Strain(const vec<T,9>& F, T& strain_energy){
-    compute_energy_fixedcorotated(volume, mu, lambda, F, strain_energy);
+    compute_energy_vonmises(volume, mu, lambda, F, strain_energy);
   }
   template <typename T = PREC>
    __device__ void

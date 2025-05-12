@@ -18,7 +18,7 @@
       "froude_time_ratio": 1,
       "gravity": [
         0,
-        -9.80665,
+        0,
         0
       ],
       "initial_time": 0,
@@ -40,7 +40,7 @@
           "ASFLIP_alpha": 0.0,
           "ASFLIP_beta_max": 0,
           "ASFLIP_beta_min": 0,
-          "FBAR_fused_kernel": true,
+          "FBAR_fused_kernel": false,
           "FBAR_psi": 0.8,
           "ppc": 8,
           "type": "particles",
@@ -51,18 +51,21 @@
           {
             "apply_array": false,
             "apply_rotation": false,
-            "object": "Box",
+            "object": "Cylinder",
+            "axis": "Z",
+            "long_axis": "Z",
             "offset": [
               0.0,
-              0.0,
+              0.146,
               0.0
             ],
             "operation": "add",
             "span": [
               0.146,
-              0.292,
+              0.146,
               0.024
             ],
+            "radius": 0.036,
             "track_particle_id": [
               0
             ]
@@ -72,10 +75,12 @@
         "material": {
           "CFL": 0.425,
           "bulk_modulus": 2e7,
-          "constitutive": "JFluid",
+          "youngs_modulus": 2e8,
+          "poissons_ratio": 0.2,
+          "constitutive": "FixedCorotated",
           "gamma": 7.125,
           "material_preset": "Water (Fresh)",
-          "rho": 1000.0,
+          "rho": 7850.0,
           "viscosity": 0.001
         },
         "model": 0,
@@ -87,8 +92,8 @@
           "Velocity_X"
         ],
         "partition_start": [
-          0.0,
           0.000,
+          0.0,
           0.000
         ],
         "partition_end": [
@@ -112,7 +117,7 @@
         ],
         "type": "particles",
         "velocity": [
-          0,
+          4,
           0.0,
           0
         ]
@@ -124,7 +129,7 @@
           "ASFLIP_beta_min": 0,
           "FBAR_fused_kernel": true,
           "FBAR_psi": 0.0,
-          "ppc": 8,
+          "ppc": 27.000001,
           "type": "particles",
           "use_ASFLIP": false,
           "use_FBAR": false
@@ -142,7 +147,7 @@
             "operation": "add",
             "span": [
               0.012,
-              0.532,
+              0.401,
               0.024
             ],
             "track_particle_id": [
@@ -153,12 +158,12 @@
         "gpu": 0,
         "material": {
           "CFL": 0.425,
-          "youngs_modulus": 7.5e7,
+          "youngs_modulus": 1e9,
           "poissons_ratio": 0.2,
           "constitutive": "VonMises",
           "material_preset": "Steel",
           "rho": 1000.0,
-          "tensile_yield_strength": 2.5e5
+          "tensile_yield_strength": 1e6
         },
         "model": 1,
         "name": "structure",
@@ -173,8 +178,8 @@
           0.000
         ],
         "partition_end": [
-          0.584,
-          0.365,
+          0.608,
+          0.401,
           0.024
         ],
         "target_attribs": [
@@ -227,6 +232,22 @@
         "domain_end": [
           0.304,
           -0.006,
+          0.030
+        ],
+        "friction_dynamic": 0,
+        "friction_static": 0
+      },
+      {
+        "object": "Box",
+        "contact": "Sticky",
+        "domain_start": [
+          0.292,
+          0.590,
+          -0.006
+        ],
+        "domain_end": [
+          0.304,
+          0.608,
           0.030
         ],
         "friction_dynamic": 0,
