@@ -1813,6 +1813,22 @@ void parse_scene(std::string fn,
                       fmt::print(fg(red), "GPU[{}] MODEL[{}] Poisson ratio[{}] is invalid. Set to -0.4999.\n", gpu_id, model_id, materialConfigs.nu); 
                     }
                   }
+                  else if (constitutive == "VonMises" || constitutive == "Von_Mises" || constitutive == "Von-Mises" || constitutive == "Von Mises" || constitutive == "vonmises" || constitutive == "von_mises" || constitutive == "von-mises"|| constitutive == "von mises") {
+                    materialConfigs.E = CheckDouble(mat, "youngs_modulus", 1e7);
+                    materialConfigs.nu = CheckDouble(mat, "poisson_ratio", 0.2);
+                    materialConfigs.tensile_yield_strength = CheckDouble(mat, "tensile_yield_strength", 2.0e6);
+                    if (materialConfigs.nu >= 0.5) { 
+                      materialConfigs.nu = 0.4999; 
+                      fmt::print(fg(red), "GPU[{}] MODEL[{}] Poisson ratio[{}] is invalid. Set to 0.4999.\n", gpu_id, model_id, materialConfigs.nu);
+                    } else if (materialConfigs.nu <= -0.5) { 
+                      materialConfigs.nu = -0.4999; 
+                      fmt::print(fg(red), "GPU[{}] MODEL[{}] Poisson ratio[{}] is invalid. Set to -0.4999.\n", gpu_id, model_id, materialConfigs.nu); 
+                    }
+                    if (materialConfigs.tensile_yield_strength <= 0.0) {
+                      materialConfigs.tensile_yield_strength = 1e-6;
+                      fmt::print(fg(red), "GPU[{}] MODEL[{}] Tensile yield strength[{}] is invalid. Set to 1e-6.\n", gpu_id, model_id, materialConfigs.tensile_yield_strength);
+                    }
+                  }
                 }
               }
             } // end bodies:material
@@ -1901,10 +1917,49 @@ void parse_scene(std::string fn,
                       gpu_id, model_id, materialConfigs, algoConfigs,
                       output_attribs, track_particle_ids, track_attribs, target_attribs);
                 }
+                else if (!algoConfigs.use_ASFLIP && algoConfigs.use_FBAR && !algoConfigs.use_FEM)
+                {
+                  benchmark->initModel<mn::material_e::FixedCorotated_FBAR>(gpu_id, model_id, positions, velocity, track_particle_ids, track_attribs);
+                  benchmark->updateParameters<mn::material_e::FixedCorotated_FBAR>(
+                      gpu_id, model_id, materialConfigs, algoConfigs,
+                      output_attribs, track_particle_ids, track_attribs, target_attribs);
+                }
                 else if (algoConfigs.use_ASFLIP && algoConfigs.use_FBAR && !algoConfigs.use_FEM)
                 {
                   benchmark->initModel<mn::material_e::FixedCorotated_ASFLIP_FBAR>(gpu_id, model_id, positions, velocity, track_particle_ids, track_attribs);
                   benchmark->updateParameters<mn::material_e::FixedCorotated_ASFLIP_FBAR>(
+                      gpu_id, model_id, materialConfigs, algoConfigs,
+                      output_attribs, track_particle_ids, track_attribs, target_attribs);
+                }
+                else { algo_error = true; }
+              } 
+              else if (constitutive == "VonMises" || constitutive == "Von_Mises" || constitutive == "Von-Mises" || constitutive == "Von Mises" || constitutive == "vonmises" || constitutive == "von_mises" || constitutive == "von-mises"|| constitutive == "von mises") {
+                if (use_HydroUQ_interface == false) {
+                  materialConfigs.E = CheckDouble(model, "youngs_modulus", 1e7);
+                  materialConfigs.nu = CheckDouble(model, "poisson_ratio", 0.2);
+                  materialConfigs.tensile_yield_strength = CheckDouble(model, "tensile_yield_strength", 2.0e6);
+                  if (materialConfigs.nu >= 0.5) { 
+                    materialConfigs.nu = 0.4999; 
+                    fmt::print(fg(red), "GPU[{}] MODEL[{}] Poisson ratio[{}] is invalid. Set to 0.4999.\n", gpu_id, model_id, materialConfigs.nu);
+                  } else if (materialConfigs.nu <= -0.5) { 
+                    materialConfigs.nu = -0.4999; 
+                    fmt::print(fg(red), "GPU[{}] MODEL[{}] Poisson ratio[{}] is invalid. Set to -0.4999.\n", gpu_id, model_id, materialConfigs.nu); 
+                  }
+                  if (materialConfigs.tensile_yield_strength <= 0.0) {
+                    materialConfigs.tensile_yield_strength = 1e-6;
+                    fmt::print(fg(red), "GPU[{}] MODEL[{}] Tensile yield strength[{}] is invalid. Set to 1e-6.\n", gpu_id, model_id, materialConfigs.tensile_yield_strength);
+                  }
+                }
+                // Update time-step for material properties: dt = dx / v_pwave * CFL
+                PREC pwave_velocity = std::sqrt((materialConfigs.E / (3.0 * (1.0 - 2.0 * materialConfigs.nu))) / materialConfigs.rho);
+                PREC max_dt = (l / mn::config::g_dx_inv_d) / pwave_velocity * materialConfigs.CFL;
+                benchmark->set_time_step(max_dt); //< Set time-step
+                fmt::print(fg(yellow), "GPU[{}] MODEL[{}] Max time-step[{}] of material.\n", gpu_id, model_id, max_dt);
+
+                if(!algoConfigs.use_ASFLIP && !algoConfigs.use_FBAR && !algoConfigs.use_FEM)
+                {
+                  benchmark->initModel<mn::material_e::VonMises>(gpu_id, model_id, positions, velocity, track_particle_ids, track_attribs);
+                  benchmark->updateParameters<mn::material_e::VonMises>(
                       gpu_id, model_id, materialConfigs, algoConfigs,
                       output_attribs, track_particle_ids, track_attribs, target_attribs);
                 }
@@ -1936,6 +1991,27 @@ void parse_scene(std::string fn,
                       gpu_id, model_id, materialConfigs, algoConfigs,
                       output_attribs, track_particle_ids, track_attribs, target_attribs);
                 }
+                else if (algoConfigs.use_ASFLIP && !algoConfigs.use_FBAR && !algoConfigs.use_FEM)
+                {
+                  benchmark->initModel<mn::material_e::NeoHookean_ASFLIP>(gpu_id, model_id, positions, velocity, track_particle_ids, track_attribs);
+                  benchmark->updateParameters<mn::material_e::NeoHookean_ASFLIP>( 
+                      gpu_id, model_id, materialConfigs, algoConfigs,
+                      output_attribs, track_particle_ids, track_attribs, target_attribs);
+                }
+                else if (!algoConfigs.use_ASFLIP && algoConfigs.use_FBAR && !algoConfigs.use_FEM)
+                {
+                  benchmark->initModel<mn::material_e::NeoHookean_FBAR>(gpu_id, model_id, positions, velocity, track_particle_ids, track_attribs);
+                  benchmark->updateParameters<mn::material_e::NeoHookean_FBAR>( 
+                      gpu_id, model_id, materialConfigs, algoConfigs,
+                      output_attribs, track_particle_ids, track_attribs, target_attribs);
+                }
+                else if (!algoConfigs.use_ASFLIP && !algoConfigs.use_FBAR && !algoConfigs.use_FEM)
+                {
+                  benchmark->initModel<mn::material_e::NeoHookean>(gpu_id, model_id, positions, velocity, track_particle_ids, track_attribs);
+                  benchmark->updateParameters<mn::material_e::NeoHookean>( 
+                      gpu_id, model_id, materialConfigs, algoConfigs,
+                      output_attribs, track_particle_ids, track_attribs, target_attribs);
+                }
                 else { algo_error = true; }
               } 
               else if (constitutive == "Sand" || constitutive == "sand" || constitutive == "DruckerPrager" || constitutive == "Drucker_Prager" || constitutive == "Drucker-Prager" || constitutive == "Drucker Prager") { 
@@ -1964,11 +2040,31 @@ void parse_scene(std::string fn,
                 
                 if (algoConfigs.use_ASFLIP && algoConfigs.use_FBAR && !algoConfigs.use_FEM)
                 {
+                  benchmark->initModel<mn::material_e::Sand_ASFLIP_FBAR>(gpu_id, model_id, positions, velocity, track_particle_ids, track_attribs); 
+                  benchmark->updateParameters<mn::material_e::Sand_ASFLIP_FBAR>( 
+                        gpu_id, model_id, materialConfigs, algoConfigs,
+                        output_attribs, track_particle_ids, track_attribs, target_attribs);
+                }
+                else if (algoConfigs.use_ASFLIP && !algoConfigs.use_FBAR && !algoConfigs.use_FEM)
+                {
+                  benchmark->initModel<mn::material_e::Sand_ASFLIP>(gpu_id, model_id, positions, velocity, track_particle_ids, track_attribs); 
+                  benchmark->updateParameters<mn::material_e::Sand_ASFLIP>( 
+                        gpu_id, model_id, materialConfigs, algoConfigs,
+                        output_attribs, track_particle_ids, track_attribs, target_attribs);
+                }
+                else if (!algoConfigs.use_ASFLIP && algoConfigs.use_FBAR && !algoConfigs.use_FEM)
+                {
+                  benchmark->initModel<mn::material_e::Sand_FBAR>(gpu_id, model_id, positions, velocity, track_particle_ids, track_attribs); 
+                  benchmark->updateParameters<mn::material_e::Sand_FBAR>( 
+                        gpu_id, model_id, materialConfigs, algoConfigs,
+                        output_attribs, track_particle_ids, track_attribs, target_attribs);
+                }
+                else if (!algoConfigs.use_ASFLIP && !algoConfigs.use_FBAR && !algoConfigs.use_FEM)
+                {
                   benchmark->initModel<mn::material_e::Sand>(gpu_id, model_id, positions, velocity, track_particle_ids, track_attribs); 
                   benchmark->updateParameters<mn::material_e::Sand>( 
                         gpu_id, model_id, materialConfigs, algoConfigs,
                         output_attribs, track_particle_ids, track_attribs, target_attribs);
-
                 }
                 else { algo_error = true; }
               } 
@@ -2036,6 +2132,27 @@ void parse_scene(std::string fn,
                 fmt::print(fg(yellow), "GPU[{}] MODEL[{}] Max time-step[{}] of material.\n", gpu_id, model_id, max_dt);
                 
                 if (algoConfigs.use_ASFLIP && algoConfigs.use_FBAR && !algoConfigs.use_FEM)
+                {
+                  benchmark->initModel<mn::material_e::NACC_ASFLIP_FBAR>(gpu_id, model_id, positions, velocity, track_particle_ids, track_attribs);
+                  benchmark->updateParameters<mn::material_e::NACC_ASFLIP_FBAR>( 
+                        gpu_id, model_id, materialConfigs, algoConfigs,
+                        output_attribs, track_particle_ids, track_attribs, target_attribs);
+                }
+                else if (!algoConfigs.use_ASFLIP && algoConfigs.use_FBAR && !algoConfigs.use_FEM)
+                {
+                  benchmark->initModel<mn::material_e::NACC_FBAR>(gpu_id, model_id, positions, velocity, track_particle_ids, track_attribs);
+                  benchmark->updateParameters<mn::material_e::NACC_FBAR>( 
+                        gpu_id, model_id, materialConfigs, algoConfigs,
+                        output_attribs, track_particle_ids, track_attribs, target_attribs);
+                }
+                else if (algoConfigs.use_ASFLIP && !algoConfigs.use_FBAR && !algoConfigs.use_FEM)
+                {
+                  benchmark->initModel<mn::material_e::NACC_ASFLIP>(gpu_id, model_id, positions, velocity, track_particle_ids, track_attribs);
+                  benchmark->updateParameters<mn::material_e::NACC_ASFLIP>( 
+                        gpu_id, model_id, materialConfigs, algoConfigs,
+                        output_attribs, track_particle_ids, track_attribs, target_attribs);
+                }
+                else if (!algoConfigs.use_ASFLIP && !algoConfigs.use_FBAR && !algoConfigs.use_FEM)
                 {
                   benchmark->initModel<mn::material_e::NACC>(gpu_id, model_id, positions, velocity, track_particle_ids, track_attribs);
                   benchmark->updateParameters<mn::material_e::NACC>( 

@@ -54,10 +54,10 @@ using vec3x3x3 = vec<float, 3, 3, 3>;
 
 /// * Available material models
 enum class material_e { JFluid, JFluid_ASFLIP, JFluid_FBAR, JBarFluid,
-                        FixedCorotated, FixedCorotated_ASFLIP, FixedCorotated_ASFLIP_FBAR,
-                        NeoHookean_ASFLIP_FBAR,
-                        Sand, // Drucker Prager Plasticity, StvkHencky Elasticity
-                        NACC, 
+                        FixedCorotated, FixedCorotated_ASFLIP, FixedCorotated_FBAR, FixedCorotated_ASFLIP_FBAR,
+                        NeoHookean, NeoHookean_ASFLIP, NeoHookean_FBAR, NeoHookean_ASFLIP_FBAR,
+                        Sand, Sand_ASFLIP, Sand_FBAR, Sand_ASFLIP_FBAR, // Drucker Prager Plasticity, StvkHencky Elasticity
+                        NACC, NACC_ASFLIP, NACC_FBAR, NACC_ASFLIP_FBAR, // NACC = Non-Affine Convex Compression
                         CoupledUP,
                         Meshed,
                         VonMises,
@@ -96,7 +96,7 @@ namespace config /// * Simulation config setup and name-space
 // ! You will get errors if exceeding num. of:
 // ! (i) Physical GPUs, check 'nvidia-smi' in terminal, (ii) Max. compiled particle models per GPU
 constexpr int g_device_cnt = 1; //< IMPORTANT. Num. GPUs to compile for. Default 1.
-constexpr int g_models_per_gpu = 2; //< IMPORTANT. Max num. particle models per GPU. Default 1.
+constexpr int g_models_per_gpu = 3; //< IMPORTANT. Max num. particle models per GPU. Default 1.
 constexpr uint32_t g_model_cnt = g_device_cnt * g_models_per_gpu; //< Max num. particle models on node
 
 // * Output set-up
@@ -142,7 +142,7 @@ constexpr double g_length   = 1.0; //< Default domain full length (m)
 constexpr double g_volume   = g_length * g_length * g_length; //< Default domain max volume [m^3]
 constexpr double g_length_x = g_length / 1.0; //< Default domain x length (m)
 constexpr double g_length_y = g_length / 1.0; //< Default domain y length (m)
-constexpr double g_length_z = g_length / 8.0; //< Default domain z length (m)
+constexpr double g_length_z = g_length / 1.0; //< Default domain z length (m)
 constexpr double g_domain_volume = g_length * g_length * g_length;
 constexpr double g_grid_ratio_x = g_length_x / g_length; //< Domain x ratio
 constexpr double g_grid_ratio_y = g_length_y / g_length; //< Domain y ratio
@@ -162,7 +162,7 @@ constexpr std::size_t g_max_halo_block = 1024 * 4; //< Max active halo blocks be
 constexpr int g_num_grid_blocks_per_cuda_block = GBPCB;
 constexpr int g_num_warps_per_grid_block = 1;
 constexpr int g_num_warps_per_cuda_block = g_num_warps_per_grid_block * g_num_grid_blocks_per_cuda_block;
-constexpr int g_max_active_block = 10000; //< Max active blocks in gridBlocks. Preallocated, can resize. Lower = less memory used.
+constexpr int g_max_active_block = 20000; //< Max active blocks in gridBlocks. Preallocated, can resize. Lower = less memory used.
 
 // * Particles
 #define MAX_PPC 128 //< VERY important. Max particles-per-cell. Must be a power of two, e.g. 16, 32, 64. Substantially effects memory/performance. Exceeding MAX_PPC deletes particles. Generally, use MAX_PPC = 8*(Actual PPC) to account for compression, if nearly incompressible materials this isn't as neccesary. 64 is usually reliable as default.

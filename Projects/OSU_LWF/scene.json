@@ -37,7 +37,7 @@
 				"ppc": 8.0,
 				"use_FEM": false,
 				"use_ASFLIP": true,
-				"use_FBAR": false,
+				"use_FBAR": true,
 				"ASFLIP_alpha": 0.0,
 				"ASFLIP_beta_min": 0,
 				"ASFLIP_beta_max": 0,
@@ -89,12 +89,12 @@
 				"ppc": 8.0,
 				"use_FEM": false,
 				"use_ASFLIP": true,
-				"use_FBAR": false,
+				"use_FBAR": true,
 				"ASFLIP_alpha": 0,
 				"ASFLIP_beta_min": 0,
 				"ASFLIP_beta_max": 0,
 				"FBAR_psi": 0.0,
-				"FBAR_fused_kernel": true
+				"FBAR_fused_kernel": false
 			},
 			"geometry": [
 				{
@@ -144,12 +144,12 @@
 				"ppc": 8.0,
 				"use_FEM": false,
 				"use_ASFLIP": true,
-				"use_FBAR": true,
+				"use_FBAR": false,
 				"ASFLIP_alpha": 0,
 				"ASFLIP_beta_min": 0,
 				"ASFLIP_beta_max": 0,
 				"FBAR_psi": 0.0,
-				"FBAR_fused_kernel": false
+				"FBAR_fused_kernel": true
 			},
 			"geometry": [
 				{

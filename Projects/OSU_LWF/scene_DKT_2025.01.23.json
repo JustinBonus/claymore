@@ -1,0 +1,301 @@
+{
+    "Application": "MPM",
+    "EventClassification": "Hydro",
+    "bodies": [
+      {
+        "algorithm": {
+          "ASFLIP_alpha": 0,
+          "ASFLIP_beta_max": 0,
+          "ASFLIP_beta_min": 0,
+          "FBAR_fused_kernel": true,
+          "FBAR_psi": 0.9,
+          "ppc": 8,
+          "type": "particles",
+          "use_ASFLIP": false,
+          "use_FBAR": true
+        },
+        "geometry": [
+          {
+            "apply_array": false,
+            "apply_rotation": false,
+            "object": "Box",
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "operation": "add",
+            "span": [
+              0.015,
+              0.060,
+              0.015
+            ],
+            "track_particle_id": [
+              0
+            ]
+          },
+          {
+            "operation": "subtract",
+            "object": "Sphere",
+            "radius": 0.001,
+            "span": [
+              0.002,
+              0.002,
+              0.002
+            ],
+            "offset": [
+              0.0074,
+              0.052,
+              0.0074
+            ],
+            "array": [
+              1,
+              2,
+              1
+            ],
+            "spacing": [
+              0.0001,
+              -0.003,
+              0
+            ],
+            "track_particle_id": [
+              0
+            ]
+          }
+        ],
+        "gpu": 0,
+        "material": {
+          "CFL": 0.5,
+          "bulk_modulus": 2e5,
+          "constitutive": "JFluid",
+          "gamma": 7.125,
+          "material_preset": "Water (Fresh)",
+          "rho": 1000.0,
+          "viscosity": 0.001
+        },
+        "model": 0,
+        "name": "fluid",
+        "output_attribs": [
+          "ID",
+          "Pressure"
+        ],
+        "partition_start": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "partition_end": [
+          0.015,
+          0.060,
+          0.015
+        ],
+        "target_attribs": [
+          "Position_Y"
+        ],
+        "track_attribs": [
+          "Position_X",
+          "Position_Y",
+          "Position_Z",
+          "Velocity_X",
+          "Velocity_Y",
+          "Velocity_Z"
+        ],
+        "track_particle_id": [
+          0
+        ],
+        "type": "particles",
+        "velocity": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "algorithm": {
+          "ASFLIP_alpha": 0,
+          "ASFLIP_beta_max": 0,
+          "ASFLIP_beta_min": 0,
+          "FBAR_fused_kernel": true,
+          "FBAR_psi": 0,
+          "ppc": 8,
+          "type": "particles",
+          "use_ASFLIP": true,
+          "use_FBAR": false
+        },
+        "geometry": [
+          {
+            "operation": "add",
+            "object": "Sphere",
+            "radius": 0.001,
+            "offset": [
+              0.0074,
+              0.052,
+              0.0074
+            ],
+            "span": [
+              0.002,
+              0.002,
+              0.002
+            ],
+            "array": [
+              1,
+              2,
+              1
+            ],
+            "spacing": [
+              0.0001,
+              -0.003,
+              0.0
+            ],
+            "track_particle_id": [
+              0
+            ]
+          }
+        ],
+        "gpu": 0,
+        "material": {
+          "CFL": 0.5,
+          "constitutive": "FixedCorotated",
+          "material_preset": "Plastic",
+          "poisson_ratio": 0.3,
+          "rho": 4000.0,
+          "youngs_modulus": 1e5
+        },
+        "model": 1,
+        "name": "debris",
+        "output_attribs": [
+          "ID",
+          "Pressure",
+          "Velocity_X",
+          "Velocity_Y",
+          "Velocity_Z"
+        ],
+        "partition_start": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "partition_end": [
+          0.015,
+          0.060,
+          0.015
+        ],
+        "target_attribs": [
+          "Position_Y"
+        ],
+        "track_attribs": [
+          "Position_X",
+          "Position_Y",
+          "Position_Z",
+          "Velocity_X",
+          "Velocity_Y",
+          "Velocity_Z"
+        ],
+        "track_particle_id": [
+          0
+        ],
+        "type": "particles",
+        "velocity": [
+          0,
+          0,
+          0
+        ]
+      }
+    ],
+    "boundaries": [
+      {
+        "object": "Walls",
+        "contact": "Separable",
+        "domain_end": [
+          0.015,
+          0.06,
+          0.015
+        ],
+        "domain_start": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "friction_dynamic": 0,
+        "friction_static": 0
+      }
+    ],
+    "grid-sensors": [
+      {
+        "attribute": "Force",
+        "direction": "Y-",
+        "domain_start": [
+          -0.0008,
+          -0.0008,
+          -0.0008
+        ],
+        "domain_end": [
+          0.0158,
+          0.00001,
+          0.0158
+        ],
+        "name": "LoadCell1",
+        "operation": "Sum",
+        "output_frequency": 120,
+        "toggle": true,
+        "type": "grid"
+      }
+    ],
+    "particle-sensors": [
+      {
+        "attribute": "Elevation",
+        "direction": "N/A",
+        "domain_start": [
+          0.00725,
+          0.04,
+          0.00725
+        ],
+        "domain_end": [
+          0.00775,
+          0.06,
+          0.00775
+        ],
+        "name": "WaveGauge1",
+        "operation": "Max",
+        "output_frequency": 30,
+        "toggle": true,
+        "type": "particles"
+      }
+    ],
+    "simulation": {
+      "cauchy_bulk_ratio": 1,
+      "cfl": 0.5,
+      "default_dt": 0.01,
+      "default_dx": 0.0004,
+      "domain": [
+        0.02,
+        0.08,
+        0.02
+      ],
+      "duration": 6.0,
+      "fps": 60,
+      "frames": 360,
+      "froude_scaling": 1,
+      "froude_time_ratio": 1,
+      "gravity": [
+        0,
+        -9.80665,
+        0
+      ],
+      "initial_time": 0,
+      "mirror_domain": [
+        false,
+        false,
+        false
+      ],
+      "particles_output_exterior_only": false,
+      "save_suffix": ".bgeo",
+      "time": 0,
+      "time_integration": "Explicit",
+      "use_cauchy_scaling": false,
+      "use_froude_scaling": false
+    },
+    "subtype": "MPM",
+    "type": "MPM"
+  }
+  
