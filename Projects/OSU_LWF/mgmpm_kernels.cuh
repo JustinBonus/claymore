@@ -2401,7 +2401,13 @@ __global__ void update_grid_velocity_query_max(uint32_t blockCount, Grid grid,
                   if (vdotns < 0.f) for (int d=0; d<3; ++d) vel[d] -= ySF * (vdotns * ns[d]);
               
               }
-
+              // Frictional forces
+              if (yc <= ys) {
+                if ( (vel_FLIP[0] + vel_FLIP[1] + vel_FLIP[2] != 0.f) && (friction_static != 0.f)) {
+                  PREC_G normal[3] = {ns[0], ns[1], ns[2]}; // Set normal vector
+                  apply_friction_to_grid_velocity(vel, normal, friction_static, friction_dynamic, mass, dt, l, grav.data());
+                }
+              }
             }
           } else if (gb._object == boundary_object_t::OSU_LWF_RAMP && (gb._num_bathymetry_points == 0)) {
             PREC_G wave_maker_neutral = -2.f * fr_scale; // Wave-maker neutral X pos. [m] at OSU LWF        

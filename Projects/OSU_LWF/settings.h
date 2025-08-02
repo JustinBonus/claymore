@@ -265,7 +265,8 @@ struct MaterialConfigs {
   bool hardeningOn;
   PREC rhow, alpha1, poro, Kf, Ks, Kperm;
   PREC tensile_yield_strength;
-  MaterialConfigs() : ppc(8.0), rho(1e3), bulk(2.2e7), visco(1e-3), gamma(7.1), E{1e7}, nu{0.3}, logJp0(0.), frictionAngle(30.), cohesion(0.), beta(0.5), volumeCorrection(false), xi(1.0), hardeningOn(true), rhow(1e3), alpha1(1.0), poro(0.2), Kf(1.0e7), Ks(2.2e7), Kperm(1.0e-5), tensile_yield_strength(2.0e6) {}
+  PREC hardening_modulus;
+  MaterialConfigs() : ppc(8.0), rho(1e3), bulk(2.2e7), visco(1e-3), gamma(7.1), E{1e7}, nu{0.3}, logJp0(0.), frictionAngle(30.), cohesion(0.), beta(0.5), volumeCorrection(false), xi(1.0), hardeningOn(true), rhow(1e3), alpha1(1.0), poro(0.2), Kf(1.0e7), Ks(2.2e7), Kperm(1.0e-5), tensile_yield_strength(2.0e6), hardening_modulus(1.0e6) {}
   ~MaterialConfigs() {}
 };
 

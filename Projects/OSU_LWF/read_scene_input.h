@@ -1817,6 +1817,7 @@ void parse_scene(std::string fn,
                     materialConfigs.E = CheckDouble(mat, "youngs_modulus", 1e7);
                     materialConfigs.nu = CheckDouble(mat, "poisson_ratio", 0.2);
                     materialConfigs.tensile_yield_strength = CheckDouble(mat, "tensile_yield_strength", 2.0e6);
+                    materialConfigs.hardening_modulus = CheckDouble(mat, "hardening_modulus", 1.0e6);
                     if (materialConfigs.nu >= 0.5) { 
                       materialConfigs.nu = 0.4999; 
                       fmt::print(fg(red), "GPU[{}] MODEL[{}] Poisson ratio[{}] is invalid. Set to 0.4999.\n", gpu_id, model_id, materialConfigs.nu);
@@ -1938,6 +1939,7 @@ void parse_scene(std::string fn,
                   materialConfigs.E = CheckDouble(model, "youngs_modulus", 1e7);
                   materialConfigs.nu = CheckDouble(model, "poisson_ratio", 0.2);
                   materialConfigs.tensile_yield_strength = CheckDouble(model, "tensile_yield_strength", 2.0e6);
+                  materialConfigs.hardening_modulus = CheckDouble(model, "hardening_modulus", 1.0e6);
                   if (materialConfigs.nu >= 0.5) { 
                     materialConfigs.nu = 0.4999; 
                     fmt::print(fg(red), "GPU[{}] MODEL[{}] Poisson ratio[{}] is invalid. Set to 0.4999.\n", gpu_id, model_id, materialConfigs.nu);
@@ -2955,35 +2957,37 @@ void parse_scene(std::string fn,
             }
 
             // Check for bathymetry coordinates (optional)
-            auto bathymetry = model.FindMember("bathymetry"); // [[x1,y1],[x2,y2],...]
-            if (bathymetry != model.MemberEnd()) {
-              fmt::print(fg(cyan),"INFO: Found bathymetry key for grid-boundary[{}]. Value should be nested array of form: [ [x0,y0], [x1,y1], ..., [xn,yn] ]. Loading... \n", boundary_ID);
-              int bathymetry_size = static_cast<int>(model["bathymetry"].GetArray().Size());
-              if (bathymetry_size > mn::config::g_max_bathymetry_points) {
-                fmt::print(fg(red),"ERROR: Too many bathymetry coordinates[{}] for grid-boundary[{}]. Max allowed is [{}].\n", bathymetry_size, boundary_ID, mn::config::g_max_bathymetry_points);
-                if (mn::config::g_log_level >= 3) getchar();
-              }
-              h_gridBoundary._num_bathymetry_points = static_cast<int>(bathymetry_size);
-              fmt::print(fg(cyan),"INFO: Found [{}] bathymetry coordinates for grid-boundary[{}]! Max allowable: [32] \n", h_gridBoundary._num_bathymetry_points, boundary_ID); 
-
-              int bathymetry_i = 0;
-              for (auto &coord : model["bathymetry"].GetArray()) {
-                if (bathymetry_i >= mn::config::g_max_bathymetry_points) break;
-                mn::vec<PREC_G, 2> xy;
-                for (int d = 0; d < 2; ++d) {
-                  xy[d] = coord.GetArray()[d].GetFloat();
+            auto use_custom_bathymetry = CheckBool(geometry, "use_custom_bathymetry", false);
+            if (use_custom_bathymetry || (object == "Bathymetry") || (object == "bathymetry")) {
+              auto bathymetry = model.FindMember("bathymetry"); // [[x1,y1],[x2,y2],...]
+              if (bathymetry != model.MemberEnd()) {
+                fmt::print(fg(cyan),"INFO: Found bathymetry key for grid-boundary[{}]. Value should be nested array of form: [ [x0,y0], [x1,y1], ..., [xn,yn] ]. Loading... \n", boundary_ID);
+                int bathymetry_size = static_cast<int>(model["bathymetry"].GetArray().Size());
+                if (bathymetry_size > mn::config::g_max_bathymetry_points) {
+                  fmt::print(fg(red),"ERROR: Too many bathymetry coordinates[{}] for grid-boundary[{}]. Max allowed is [{}].\n", bathymetry_size, boundary_ID, mn::config::g_max_bathymetry_points);
+                  if (mn::config::g_log_level >= 3) getchar();
                 }
-                h_gridBoundary._bathymetry_points[bathymetry_i][0] = xy[0] * froude_scaling / l + o;
-                h_gridBoundary._bathymetry_points[bathymetry_i][1] = xy[1] * froude_scaling / l + o;
-                fmt::print(fg(green),"Bathymetry[{}/{}]: Input [{}, {}], Scaled [{}, {}]\n", bathymetry_i, h_gridBoundary._num_bathymetry_points, xy[0], xy[1], h_gridBoundary._bathymetry_points[bathymetry_i][0], h_gridBoundary._bathymetry_points[bathymetry_i][1]);
-                bathymetry_i++;
-              }
-              // h_gridBoundary._bathymetry_points = bathymetry_coords;
-            } else {
-              h_gridBoundary._num_bathymetry_points = 0;
-              fmt::print(fg(yellow),"NOTE: No custom bathymetry points set for grid-boundary[{}].\n", boundary_ID);
-            }
+                h_gridBoundary._num_bathymetry_points = static_cast<int>(bathymetry_size);
+                fmt::print(fg(cyan),"INFO: Found [{}] bathymetry coordinates for grid-boundary[{}]! Max allowable: [32] \n", h_gridBoundary._num_bathymetry_points, boundary_ID); 
 
+                int bathymetry_i = 0;
+                for (auto &coord : model["bathymetry"].GetArray()) {
+                  if (bathymetry_i >= mn::config::g_max_bathymetry_points) break;
+                  mn::vec<PREC_G, 2> xy;
+                  for (int d = 0; d < 2; ++d) {
+                    xy[d] = coord.GetArray()[d].GetFloat();
+                  }
+                  h_gridBoundary._bathymetry_points[bathymetry_i][0] = xy[0] * froude_scaling / l + o;
+                  h_gridBoundary._bathymetry_points[bathymetry_i][1] = xy[1] * froude_scaling / l + o;
+                  fmt::print(fg(green),"Bathymetry[{}/{}]: Input [{}, {}], Scaled [{}, {}]\n", bathymetry_i, h_gridBoundary._num_bathymetry_points, xy[0], xy[1], h_gridBoundary._bathymetry_points[bathymetry_i][0], h_gridBoundary._bathymetry_points[bathymetry_i][1]);
+                  bathymetry_i++;
+                }
+                // h_gridBoundary._bathymetry_points = bathymetry_coords;
+              } else {
+                h_gridBoundary._num_bathymetry_points = 0;
+                fmt::print(fg(yellow),"NOTE: No custom bathymetry points set for grid-boundary[{}].\n", boundary_ID);
+              }
+            }
 
             // Set up moving grid-boundary if applicable
             auto motion_file = model.FindMember("file"); // Check for motion file
