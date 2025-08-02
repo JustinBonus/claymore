@@ -2924,22 +2924,32 @@ __global__ void update_grid_velocity_query_max(uint32_t blockCount, Grid grid,
               }
             }
           } else if (gb._object == boundary_object_t::VELOCITY_BOUNDARY) {
-            // * It is assumed that the velocity boundary has normal equivalent to unit vector in the direction of the velocity
-            if ((xc >= gb._domain_start[0] + gb._velocity[0]*(curTime)) && (xc <= gb._domain_end[0] + gb._velocity[0]*(curTime))) 
-            if ((yc >= gb._domain_start[1] + gb._velocity[1]*(curTime)) && (yc <= gb._domain_end[1] + gb._velocity[1]*(curTime))) 
-            if ((zc >= gb._domain_start[2] + gb._velocity[2]*(curTime)) && (zc <= gb._domain_end[2] + gb._velocity[2]*(curTime))) {
-
-              // * Velocity boundary is active
-              // * Velocity boundary is assumed to be a box
-              // * V
-              // TODO FIX THIS TO NOT JUST WORK IN X DiRECTION
-              // if (gb._contact == boundary_contact_t::Sticky) {
-              // for (int d=0; d<3; d++) vel[d] = gb._velocity[d];
-              constexpr PREC_G TIME_LIMIT = 0.2f; // Time limit for velocity boundary, [sec]
-              if (curTime < TIME_LIMIT) {
-                if (vel[0] < gb._velocity[0]) vel[0] = gb._velocity[0];
-              }
             
+            // Code for non-moving, untimed velocity boundary
+            if ((xc >= gb._domain_start[0]) && (xc <= gb._domain_end[0]))
+            if ((yc >= gb._domain_start[1]) && (yc <= gb._domain_end[1]))
+            if ((zc >= gb._domain_start[2]) && (zc <= gb._domain_end[2])) {
+              for (int d=0; d<3; d++) vel[d] = gb.velocity[d];
+            }
+
+            // Old code for a moving, time velocity boundary            
+            // // * It is assumed that the velocity boundary has normal equivalent to unit vector in the direction of the velocity
+            // if ((xc >= gb._domain_start[0] + gb._velocity[0]*(curTime)) && (xc <= gb._domain_end[0] + gb._velocity[0]*(curTime))) 
+            // if ((yc >= gb._domain_start[1] + gb._velocity[1]*(curTime)) && (yc <= gb._domain_end[1] + gb._velocity[1]*(curTime))) 
+            // if ((zc >= gb._domain_start[2] + gb._velocity[2]*(curTime)) && (zc <= gb._domain_end[2] + gb._velocity[2]*(curTime))) {
+
+            //   // * Velocity boundary is active
+            //   // * Velocity boundary is assumed to be a box
+            //   // * V
+            //   // TODO FIX THIS TO NOT JUST WORK IN X DiRECTION
+            //   // if (gb._contact == boundary_contact_t::Sticky) {
+            //   // for (int d=0; d<3; d++) vel[d] = gb._velocity[d];
+            //   constexpr PREC_G TIME_LIMIT = 0.2f; // Time limit for velocity boundary, [sec]
+            //   if (curTime < TIME_LIMIT) {
+            //     if (vel[0] < gb._velocity[0]) vel[0] = gb._velocity[0];
+            //   }
+            
+
             // else if (gb._contact == boundary_contact_t::Slip) {
             //   PREC_G unit_vel[3];
             //   {
