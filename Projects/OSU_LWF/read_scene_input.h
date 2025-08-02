@@ -2957,7 +2957,7 @@ void parse_scene(std::string fn,
             }
 
             // Check for bathymetry coordinates (optional)
-            auto use_custom_bathymetry = CheckBool(geometry, "use_custom_bathymetry", false);
+            auto use_custom_bathymetry = CheckBool(model, "use_custom_bathymetry", false);
             if (use_custom_bathymetry || (object == "Bathymetry") || (object == "bathymetry")) {
               auto bathymetry = model.FindMember("bathymetry"); // [[x1,y1],[x2,y2],...]
               if (bathymetry != model.MemberEnd()) {
