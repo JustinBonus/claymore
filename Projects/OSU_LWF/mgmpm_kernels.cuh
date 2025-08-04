@@ -2929,7 +2929,7 @@ __global__ void update_grid_velocity_query_max(uint32_t blockCount, Grid grid,
             if ((xc >= gb._domain_start[0]) && (xc <= gb._domain_end[0]))
             if ((yc >= gb._domain_start[1]) && (yc <= gb._domain_end[1]))
             if ((zc >= gb._domain_start[2]) && (zc <= gb._domain_end[2])) {
-              for (int d=0; d<3; d++) vel[d] = gb.velocity[d];
+              for (int d=0; d<3; d++) vel[d] = gb._velocity[d];
             }
 
             // Old code for a moving, time velocity boundary            
@@ -2993,7 +2993,6 @@ __global__ void update_grid_velocity_query_max(uint32_t blockCount, Grid grid,
             //   }
 
             // }
-            }
           }
         } //< End boundaries
 
