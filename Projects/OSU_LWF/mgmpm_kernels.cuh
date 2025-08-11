@@ -2307,6 +2307,7 @@ __global__ void update_grid_velocity_query_max(uint32_t blockCount, Grid grid,
           boundary_pos[0] = boundary[0];
           boundary_pos[1] = boundary[1];
           boundary_pos[2] = boundary[2];
+          // basically HydroUQ might select a bunch of different boundary types but if we are using a custom bathymetry set of coordinates that should override something like the default OSU LWF ramp. If there aren't custom bathymetry points it won't override
           if (( gb._object == boundary_object_t::BATHYMETRY
               || gb._object == boundary_object_t::OSU_LWF_RAMP 
               || gb._object == boundary_object_t::OSU_TWB_RAMP 
