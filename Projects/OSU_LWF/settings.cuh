@@ -188,7 +188,7 @@ constexpr bool g_buckets_on_particle_buffer = true; //< ADVANCED. Default true. 
 
 // * Particle-Trackers
 constexpr int g_track_ID = 0; //< ID of particle to track, [0, g_max_fem_vertice_num)
-constexpr int g_max_particle_trackers = 64; //< Max no. particle trackers. Preallocated, can resize.
+constexpr int g_max_particle_trackers = 16; //< Max no. particle trackers. Preallocated, can resize.
 std::array<int, g_max_particle_trackers> g_track_IDs = {g_track_ID}; //< IDs of particles to track for high-freq outputs
 constexpr int g_max_particle_tracker_attribs = 6;
 

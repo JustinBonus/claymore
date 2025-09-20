@@ -368,7 +368,7 @@ struct ParticleBufferImpl : Instance<particle_buffer_<particle_bin_<mt>>> {
   }
 
 
-  static constexpr int LABEL_MAX = 64; // max chars per label (including '\0')
+  static constexpr int LABEL_MAX = 32; // max chars per label (including '\0')
 
   // ---- trackers ----
   int track_ID = 0;
