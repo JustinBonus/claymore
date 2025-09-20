@@ -1,7 +1,7 @@
 #ifndef __SETTINGS_H_
 #define __SETTINGS_H_
 #include "partition_domain.h"
-#include <MnBase/Math/Vec.h>
+#include <MnBase/Math/Vec.cuh>
 #include <MnBase/Object/Structural.h>
 #include <string>
 #include <iostream>

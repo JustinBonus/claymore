@@ -2,7 +2,7 @@
 #define __HALO_BUFFER_CUH_
 #include "grid_buffer.cuh"
 #include "particle_buffer.cuh"
-#include "settings.h"
+#include "settings.cuh"
 #include <MnBase/Meta/Polymorphism.h>
 //#include <cub/device/device_scan.cuh>
 

@@ -1,7 +1,7 @@
 #ifndef __HASH_TABLE_CUH_
 #define __HASH_TABLE_CUH_
 #include "mgmpm_kernels.cuh"
-#include "settings.h"
+#include "settings.cuh"
 // #include "grid_buffer.cuh"
 #include "utility_funcs.hpp"
 #include <MnSystem/Cuda/HostUtils.hpp>

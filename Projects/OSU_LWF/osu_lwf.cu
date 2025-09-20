@@ -3,7 +3,7 @@
 #include "partition_domain.h"
 
 #include <MnBase/Geometry/GeometrySampler.h>
-#include <MnBase/Math/Vec.h>
+#include <MnBase/Math/Vec.cuh>
 #include <MnSystem/Cuda/Cuda.h>
 #include <MnSystem/IO/IO.h>
 #include <MnSystem/IO/ParticleIO.hpp>
@@ -34,13 +34,15 @@
 // #include <experimental/filesystem>
 // namespace fs = std::experimental::filesystem;
 // #endif
-#if 0
-#include <ghc/filesystem.hpp>
-namespace fs = ghc::filesystem;
-#else
-#include <experimental/filesystem>
-namespace fs = std::experimental::filesystem;
-#endif
+
+// was working on GCC Ubuntu but not MSVC Windows as fs already defined in read_scene_input.h
+// #if 0
+// #include <ghc/filesystem.hpp>
+// namespace fs = ghc::filesystem;
+// #else
+// #include <experimental/filesystem>
+// namespace fs = std::experimental::filesystem;
+//#endif
 
 // #include <rapidjson/document.h>
 // #include <rapidjson/stringbuffer.h>

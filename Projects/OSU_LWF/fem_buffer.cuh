@@ -1,6 +1,6 @@
 #ifndef __FEM_BUFFER_CUH_
 #define __FEM_BUFFER_CUH_
-#include "settings.h"
+#include "settings.cuh"
 #include <MnBase/Meta/Polymorphism.h>
 
 namespace mn {

@@ -1,6 +1,6 @@
 #ifndef __STRUCTURAL_AUXILIARY_H_
 #define __STRUCTURAL_AUXILIARY_H_
-#include <MnBase/Math/Vec.h>
+#include <MnBase/Math/Vec.cuh>
 #include <MnBase/Meta/MathMeta.h>
 
 namespace mn {

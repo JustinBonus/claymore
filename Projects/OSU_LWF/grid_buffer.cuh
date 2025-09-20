@@ -1,7 +1,7 @@
 #ifndef __GRID_BUFFER_CUH_
 #define __GRID_BUFFER_CUH_
 #include "mgmpm_kernels.cuh"
-#include "settings.h"
+#include "settings.cuh"
 #include <MnSystem/Cuda/HostUtils.hpp>
 #include <MnBase/Meta/Polymorphism.h>
 

@@ -6,7 +6,7 @@
 #include "constitutive_models.cuh"
 #include "particle_buffer.cuh"
 #include "fem_buffer.cuh"
-#include "settings.h"
+#include "settings.cuh"
 #include "utility_funcs.hpp"
 #include <MnBase/Algorithm/MappingKernels.cuh>
 #include <MnBase/Math/Matrix/MatrixUtils.h>
@@ -18638,7 +18638,11 @@ retrieve_particle_buffer_attributes_general(Partition partition,
       unsigned NUM_RUNTIME_TRACKERS = pbuffer.num_runtime_trackers;
       unsigned NUM_RUNTIME_TRACKER_ATTRIBS = pbuffer.num_runtime_tracker_attribs; 
       /// Get value of tracked particles for desired attribute
-      vec<int, g_max_particle_tracker_attribs> track_attribs = pbuffer.track_attribs;
+      // vec<int, g_max_particle_tracker_attribs> track_attribs = pbuffer.track_attribs;
+      vec<int, g_max_particle_tracker_attribs> track_attribs{};
+#pragma unroll
+      for (int i = 0; i < g_max_particle_tracker_attribs; ++i)
+        track_attribs[i] = pbuffer.track_attribs[i];
       for (int t=0; t<g_max_particle_trackers; t++) {
         if (t >= NUM_RUNTIME_TRACKERS) continue;
         if (global_particle_ID != pbuffer.track_IDs[t]) continue;
@@ -18661,7 +18665,10 @@ retrieve_particle_buffer_attributes_general(Partition partition,
           (position.y >= (point_a[1]-tol-o)*l && position.y <= (point_b[1]+tol-o)*l) &&
           (position.z >= (point_a[2]-tol-o)*l && position.z <= (point_b[2]+tol-o)*l))
       {
-        vec<int,1> target_attribs = pbuffer.target_attribs;
+        // vec<int,1> target_attribs = pbuffer.target_attribs;
+        vec<int, 1> target_attribs{};
+        target_attribs[0] = pbuffer.target_attribs[0];
+        
         auto target_id = atomicAdd(_targetcnt, 1);
         if (target_id >= g_max_particle_target_nodes) printf("Allocate more space for particleTarget! node_id of %d compared to preallocated %d nodes!\n", target_id, g_max_particle_target_nodes);
 
@@ -18775,8 +18782,11 @@ retrieve_particle_target_attributes_general(Partition partition,
         particleTarget.val(_2, parcnt_target) = position.z; 
       }
 
-      vec<int,1> target_attribs = pbuffer.target_attribs;
-      for (int i=0; i < 1; i++ ) {
+        // vec<int,1> target_attribs = pbuffer.target_attribs;
+        vec<int, 1> target_attribs{};
+        target_attribs[0] = pbuffer.target_attribs[0];
+        
+        for (int i=0; i < 1; i++ ) {
         PREC val = 0.; //< Value of user requested output attribute on particle
         output_e_ idx = static_cast<output_e_>(target_attribs[i]); //< Output attrib. index
         caseSwitch_ParticleAttrib(pbuffer, _source_bin, _source_pidib, idx, val);

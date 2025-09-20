@@ -8,7 +8,7 @@
 #include "fem_buffer.cuh"
 #include "mgmpm_kernels.cuh"
 #include "particle_buffer.cuh"
-#include "settings.h"
+#include "settings.cuh"
 #include <MnBase/Concurrency/Concurrency.h>
 #include <MnBase/Meta/ControlFlow.h>
 #include <MnBase/Meta/TupleMeta.h>
@@ -1727,7 +1727,8 @@ struct mgsp_benchmark {
       });
       sync();
     }
-
+    fmt::print(fmt::emphasis::bold | fg(fmt::color::green),
+                "------------------------------ SYNC ----------------------------\n");
     cudaDeviceSynchronize();
     fmt::print(fmt::emphasis::bold | fg(fmt::color::red),
                 "------------------------------ END -----------------------------\n");
@@ -1947,7 +1948,8 @@ struct mgsp_benchmark {
             fmt::print("Updated attribs, [{}] particles with [{}] elements for [{}] output attributes.\n", attribs[did][mid].size() / pa.numAttributes, attribs[did][mid].size() / parcnt, pa.numAttributes);
             std::string fn = std::string{"model["} + std::to_string(mid) + "]" + "_dev[" + std::to_string(did + rank * g_device_cnt) +
                             "]_frame[" + std::to_string(curFrame) + "]" + save_suffix;
-            IO::insert_job([fn, m = models[did][mid], a = attribs[did][mid], labels = pb.output_labels, dim_out = pa.numAttributes]() { write_partio_particles<PREC>(fn, m, a, labels); });
+            std::vector<std::string> fancy_labels = [&]{ std::vector<std::string> v; v.reserve(pb.num_output_labels); for (int i = 0; i < pb.num_output_labels; ++i) v.emplace_back(pb.output_labels[i]); return v; }();
+            IO::insert_job([fn, m = models[did][mid], a = attribs[did][mid], labels = fancy_labels, dim_out = pa.numAttributes]() { write_partio_particles<PREC>(fn, m, a, labels); });
           }
         });
       }
@@ -2277,6 +2279,9 @@ struct mgsp_benchmark {
       checkCudaErrors(cudaMemcpyAsync(
           &pbcnt[did], partitions[rollid ^ 1][did]._cnt, sizeof(int),
           cudaMemcpyDefault, cuDev.stream_compute()));
+      // checkCudaErrors(cudaMemcpy(&pbcnt[did],
+      //   partitions[rollid ^ 1][did]._cnt, sizeof(int),
+      //   cudaMemcpyDeviceToHost));
       cuDev.syncStream<streamIdx::Compute>();
       timer.tock(fmt::format("GPU[{}] step {} init_table\n", did, curStep));
       for (int mid=0; mid < getModelCnt(did); mid++) {

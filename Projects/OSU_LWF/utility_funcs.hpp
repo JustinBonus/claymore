@@ -1,6 +1,6 @@
 #ifndef __UTILITY_FUNCS_HPP_
 #define __UTILITY_FUNCS_HPP_
-#include "settings.h"
+#include "settings.cuh"
 
 namespace mn {
 

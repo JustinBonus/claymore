@@ -2,7 +2,7 @@
 #define __READ_SCENE_INPUT_H_
 #include "mgsp_benchmark.cuh"
 #include "partition_domain.h"
-#include <MnBase/Math/Vec.h>
+#include <MnBase/Math/Vec.cuh>
 #include <MnBase/Geometry/GeometrySampler.h>
 #include <MnSystem/IO/IO.h>
 #include <MnSystem/IO/ParticleIO.hpp>
@@ -24,13 +24,29 @@
 #endif
 
 
-#if 0
+// #if 0
+// #include <ghc/filesystem.hpp>
+// namespace fs = ghc::filesystem;
+// #else
+// #include <experimental/filesystem>
+// namespace fs = std::experimental::filesystem;
+// #endif
+
+#define _SILENCE_EXPERIMENTAL_FILESYSTEM_DEPRECATION_WARNING 1;
+
+#if 1
 #include <ghc/filesystem.hpp>
 namespace fs = ghc::filesystem;
 #else
+#if defined(__GNUC__) && (__GNUC__ < 9)
 #include <experimental/filesystem>
 namespace fs = std::experimental::filesystem;
+#else
+#include <filesystem>
+namespace fs = std::filesystem;
 #endif
+#endif
+
 
 // #if 1
 // #include <ghc/filesystem.hpp>

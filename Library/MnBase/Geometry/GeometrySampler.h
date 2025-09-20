@@ -1,6 +1,6 @@
 #ifndef __GEOMETRY_SAMPLER_H_
 #define __GEOMETRY_SAMPLER_H_
-#include <MnBase/Math/Vec.h>
+#include <MnBase/Math/Vec.cuh>
 #include <array>
 #include <vector>
 

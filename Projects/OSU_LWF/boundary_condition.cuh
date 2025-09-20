@@ -1,7 +1,7 @@
 #ifndef __BOUNDARY_CONDITION_CUH_
 #define __BOUNDARY_CONDITION_CUH_
 #include "grid_buffer.cuh"
-#include "settings.h"
+#include "settings.cuh"
 #include <MnBase/Math/Matrix/MatrixUtils.h>
 #include <MnBase/Memory/Allocator.h>
 #include <fmt/color.h>

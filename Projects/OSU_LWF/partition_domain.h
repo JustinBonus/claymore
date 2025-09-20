@@ -1,6 +1,6 @@
 #ifndef __PARTITION_DOMAIN_H_
 #define __PARTITION_DOMAIN_H_
-#include <MnBase/Math/Vec.h>
+#include <MnBase/Math/Vec.cuh>
 #include <MnBase/Meta/Polymorphism.h>
 
 namespace mn {

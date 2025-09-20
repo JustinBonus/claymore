@@ -2,8 +2,8 @@
 #define __CONSTITUTIVE_MODELS_CUH_
 #include <MnBase/Math/Matrix/svd.cuh>
 #include <MnBase/Math/Matrix/MatrixUtils.h>
-#include <MnBase/Math/Vec.h>
-#include "settings.h"
+#include <MnBase/Math/Vec.cuh>
+#include "settings.cuh"
 
 namespace mn {
 

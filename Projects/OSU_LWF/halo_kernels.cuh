@@ -3,7 +3,7 @@
 
 #include "constitutive_models.cuh"
 #include "particle_buffer.cuh"
-#include "settings.h"
+#include "settings.cuh"
 #include "utility_funcs.hpp"
 #include <MnBase/Algorithm/MappingKernels.cuh>
 #include <MnBase/Math/Matrix/MatrixUtils.h>

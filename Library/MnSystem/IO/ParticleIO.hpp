@@ -1,12 +1,13 @@
 #ifndef __PARTICLE_IO_HPP_
 #define __PARTICLE_IO_HPP_
 #include "PoissonDisk/SampleGenerator.h"
-#include <MnBase/Math/Vec.h>
+#include <MnBase/Math/Vec.cuh>
 #include <Partio.h>
 #include <array>
 #include <string>
 #include <vector>
 #include <math.h>
+#include <memory.h>
 
 namespace mn {
 
@@ -87,7 +88,8 @@ void read_partio_general(std::string filename,
       printf("ERROR: PartIO failed to get position as VECTOR of size 3");
 
   // Generic attribute processing
-  Partio::ParticleAttribute genericAttr[dim_in];
+  // Partio::ParticleAttribute genericAttr[dim_in];
+  auto genericAttr = std::make_unique<Partio::ParticleAttribute[]>(dim_in); // fix for MSVC which doesn't like above
   int d = 0;
   for (auto label : labels) {
     if(!parts->attributeInfo(label.c_str(), genericAttr[d]) || genericAttr[d].type !=  Partio::FLOAT || genericAttr[d].count != 1)
@@ -182,7 +184,8 @@ void write_partio_particles(std::string filename,
   c[0] = color[0]; c[1] = color[1]; c[2] = color[2];
   // Add positions and attributes to the pointer by arrow operator
   Partio::ParticleAttribute pos     = parts->addAttribute("position", Partio::VECTOR, 3);
-  Partio::ParticleAttribute attrib[dim_out];
+  // Partio::ParticleAttribute attrib[dim_out];
+  auto attrib = std::make_unique<Partio::ParticleAttribute[]>(dim_out); // fix for MSVC which doesn't like above
   for (int d = 0; d < dim_out; d++)
     attrib[d] = parts->addAttribute(labels[d].c_str(), Partio::FLOAT, (int)1);
   

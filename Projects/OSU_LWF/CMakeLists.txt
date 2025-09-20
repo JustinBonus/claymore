@@ -52,7 +52,12 @@ target_link_libraries(osu_lwf
 			rapidjson
 			range-v3
 			filesystem
-			stdc++fs # Adds C++ <experimental/filsystem> for some compilers, e.g. GCC/G++ 7.5. This flag must be last to work
 )
+
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
+    target_link_libraries(osu_lwf PRIVATE stdc++fs)  # only GCC 7/8 need this
+  endif()
+endif()
 
 endif()

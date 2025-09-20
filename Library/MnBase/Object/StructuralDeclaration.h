@@ -1,6 +1,6 @@
 #ifndef __STRUCTURAL_DECLARATION_H_
 #define __STRUCTURAL_DECLARATION_H_
-#include <MnBase/Math/Vec.h>
+#include <MnBase/Math/Vec.cuh>
 #include <MnBase/Memory/MemObj.h>
 #include <MnBase/Meta/MathMeta.h>
 #include <type_traits>

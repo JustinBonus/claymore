@@ -6,7 +6,7 @@
 #include <driver_types.h>
 #include <unordered_map>
 
-#include <MnBase/Math/Vec.h>
+#include <MnBase/Math/Vec.cuh>
 
 #include <MnBase/Meta/AllocMeta.cuh>
 #include <MnBase/Object/Function.h>

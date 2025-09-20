@@ -1,9 +1,9 @@
 #ifndef __PARTICLE_BUFFER_CUH_
 #define __PARTICLE_BUFFER_CUH_
-#include "settings.h"
+#include "settings.cuh"
 #include "constitutive_models.cuh"
 #include "utility_funcs.hpp"
-#include <MnBase/Math/Vec.h>
+#include <MnBase/Math/Vec.cuh>
 #include <MnBase/Meta/Polymorphism.h>
 #include <MnSystem/Cuda/HostUtils.hpp>
 #include <MnBase/Meta/TypeMeta.h>
@@ -367,56 +367,115 @@ struct ParticleBufferImpl : Instance<particle_buffer_<particle_bin_<mt>>> {
         else return out_:: INVALID_RT;
   }
 
+
+  static constexpr int LABEL_MAX = 64; // max chars per label (including '\0')
+
+  // ---- trackers ----
   int track_ID = 0;
-  unsigned num_runtime_trackers = 0;
-  unsigned num_runtime_tracker_attribs = 0;
-  vec<int, mn::config::g_max_particle_trackers> track_IDs; // Holds IDs of particles to track
-  vec<int, mn::config::g_max_particle_tracker_attribs> track_attribs; // Holds particle attributes to track (as numbers)
-  std::vector<std::string> track_labels;   
-  void updateTrack(std::vector<std::string> names, std::vector<int> runtime_trackIDs) {
-    int i = 0;
-    for (auto ID : runtime_trackIDs) {
-      if (i >= mn::config::g_max_particle_trackers) continue;
-      track_IDs[i] = ID;
-      i++;
-    }
-    num_runtime_trackers = i;
+  int track_IDs[mn::config::g_max_particle_trackers]{};
+  int num_runtime_trackers = 0;
 
-    int j = 0;
-    for (auto n : names) {
-      if (j >= mn::config::g_max_particle_tracker_attribs) continue;
-      track_labels.emplace_back(n);
-      track_attribs[j] = static_cast<int>(mapAttributeStringToIndex(n));
-      j++;
-    }
-    num_runtime_tracker_attribs = j;
+  int track_attribs[mn::config::g_max_particle_tracker_attribs]{};
+  int num_runtime_tracker_attribs = 0;
+
+  // ---- outputs ----
+  int output_attribs[3]{-1, -1, -1};
+  int output_attribs_dyn[mn::config::g_max_particle_attribs]{};
+  int num_output_attribs = 0;
+
+  // ---- targets ----
+  int target_attribs[1]{};
+  int num_target_attribs = 0;
+
+  // ---- optional labels (POD) ----
+  char track_labels[mn::config::g_max_particle_trackers][LABEL_MAX]{};
+  int  num_track_labels = 0;
+
+  char output_labels[mn::config::g_max_particle_attribs][LABEL_MAX]{};
+  int  num_output_labels = 0;
+
+  char target_labels[mn::config::g_max_particle_attribs][LABEL_MAX]{};
+  int  num_target_labels = 0;
+
+  // -------- HOST-SIDE HELPERS --------
+  static inline void copy_label(char (&dst)[LABEL_MAX], const char* s) noexcept {
+    if (!s) { dst[0] = '\0'; return; }
+    size_t n = std::strlen(s);
+    if (n >= static_cast<size_t>(LABEL_MAX)) n = LABEL_MAX - 1;
+    if (n) std::memcpy(dst, s, n);
+    dst[n] = '\0';
   }
 
-  vec<int, 3> output_attribs;
-  vec<int, mn::config::g_max_particle_attribs> output_attribs_dyn;
-  std::vector<std::string> output_labels;   
-  void updateOutputs(std::vector<std::string> names) {
-    int i = 0;
-    for (auto n : names) {
-      if (i>=mn::config::g_max_particle_attribs) continue;
-      output_labels.emplace_back(n);
-      output_attribs_dyn[i] = static_cast<int>(mapAttributeStringToIndex(n));
-      if (i < 3) output_attribs[i] = static_cast<int>(mapAttributeStringToIndex(n));
-      i++;
+  // Pointer+count variants (no std::vector in signature)
+  void updateTrack(const char* const* names, int names_count,
+                   const int* runtime_trackIDs, int ids_count) {
+    // IDs
+    num_runtime_trackers = 0;
+    for (int i = 0; i < ids_count && i < mn::config::g_max_particle_trackers; ++i) {
+      track_IDs[i] = runtime_trackIDs[i];
+      ++num_runtime_trackers;
+    }
+    // Labels + mapped attribs
+    num_track_labels = 0;
+    num_runtime_tracker_attribs = 0;
+    const int maxN = (names_count < mn::config::g_max_particle_tracker_attribs)
+                     ? names_count : mn::config::g_max_particle_tracker_attribs;
+    for (int j = 0; j < maxN; ++j) {
+      copy_label(track_labels[j], names[j]);
+      // If mapAttributeStringToIndex requires std::string, construct locally (host only):
+      track_attribs[j] = static_cast<int>(mapAttributeStringToIndex(track_labels[j]));
+      ++num_track_labels;
+      ++num_runtime_tracker_attribs;
     }
   }
 
-  vec<int, 1> target_attribs;
-  std::vector<std::string> target_labels;   
-  void updateTargets(std::vector<std::string> names) {
-    int i = 0;
-    for (auto n : names) {
-      target_labels.emplace_back(n);
-      target_attribs[i] = static_cast<int>(mapAttributeStringToIndex(n));
-      i++;
+  void updateOutputs(const char* const* names, int names_count) {
+    num_output_labels  = 0;
+    num_output_attribs = 0;
+    const int maxN = (names_count < mn::config::g_max_particle_attribs)
+                     ? names_count : mn::config::g_max_particle_attribs;
+    for (int i = 0; i < maxN; ++i) {
+      copy_label(output_labels[i], names[i]);
+      const int idx = static_cast<int>(mapAttributeStringToIndex(output_labels[i]));
+      output_attribs_dyn[i] = idx;
+      if (i < 3) output_attribs[i] = idx;
+      ++num_output_labels;
+      ++num_output_attribs;
+    }
+    for (int k = num_output_attribs; k < 3; ++k) output_attribs[k] = -1;
+  }
+
+  void updateTargets(const char* const* names, int names_count) {
+    num_target_labels  = 0;
+    num_target_attribs = 0;
+    const int maxN = (names_count < static_cast<int>(sizeof(target_attribs)/sizeof(target_attribs[0])))
+                     ? names_count : static_cast<int>(sizeof(target_attribs)/sizeof(target_attribs[0]));
+    for (int i = 0; i < maxN; ++i) {
+      copy_label(target_labels[i], names[i]);
+      target_attribs[i] = static_cast<int>(mapAttributeStringToIndex(target_labels[i]));
+      ++num_target_labels;
+      ++num_target_attribs;
     }
   }
 
+  // Convenience overloads for existing call sites with std::vector<std::string>
+  void updateTrack(const std::vector<std::string>& names,
+                   const std::vector<int>& runtime_trackIDs) {
+    std::vector<const char*> ptrs(names.size());
+    for (size_t i = 0; i < names.size(); ++i) ptrs[i] = names[i].c_str();
+    updateTrack(ptrs.data(), static_cast<int>(ptrs.size()),
+                runtime_trackIDs.data(), static_cast<int>(runtime_trackIDs.size()));
+  }
+  void updateOutputs(const std::vector<std::string>& names) {
+    std::vector<const char*> ptrs(names.size());
+    for (size_t i = 0; i < names.size(); ++i) ptrs[i] = names[i].c_str();
+    updateOutputs(ptrs.data(), static_cast<int>(ptrs.size()));
+  }
+  void updateTargets(const std::vector<std::string>& names) {
+    std::vector<const char*> ptrs(names.size());
+    for (size_t i = 0; i < names.size(); ++i) ptrs[i] = names[i].c_str();
+    updateTargets(ptrs.data(), static_cast<int>(ptrs.size()));
+  }
 
   template <typename Allocator>
   void deallocateBuckets(Allocator allocator) {
@@ -566,7 +625,7 @@ struct ParticleBuffer<material_e::JFluid>
     if (ATTRIBUTE < attribs_e::START) return (PREC)ATTRIBUTE;
     // else if (ATTRIBUTE >= attribs_e::END) return (PREC)attribs_e::INVALID_CT;
     else if (ATTRIBUTE >= attribs_e::END) return static_cast<PREC>(NAN);
-    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, std::min(abs(ATTRIBUTE), attribs_e::END-1)>{}, particle_id_in_bin);
+    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, static_cast<unsigned>((ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) <= static_cast<int>(attribs_e::END) - 1 ? (ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) : static_cast<int>(attribs_e::END) - 1)>{}, particle_id_in_bin);
   }
   // ? Maybe needed, maybe not. Should check - JB Sept. 28th 2023
   // template <typename T>
@@ -681,7 +740,7 @@ struct ParticleBuffer<material_e::JFluid_ASFLIP>
   getAttribute(const T bin, const T particle_id_in_bin){
     if (ATTRIBUTE < attribs_e::START) return (PREC)ATTRIBUTE;
     else if (ATTRIBUTE >= attribs_e::END) return static_cast<PREC>(NAN);
-    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, std::min(abs(ATTRIBUTE), attribs_e::END-1)>{}, particle_id_in_bin);
+    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, static_cast<unsigned>((ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) <= static_cast<int>(attribs_e::END) - 1 ? (ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) : static_cast<int>(attribs_e::END) - 1)>{}, particle_id_in_bin);
   }
 
   template <typename T>
@@ -789,7 +848,7 @@ struct ParticleBuffer<material_e::JFluid_FBAR>
   getAttribute(const T bin, const T particle_id_in_bin){
     if (ATTRIBUTE < attribs_e::START) return (PREC)ATTRIBUTE;
     else if (ATTRIBUTE >= attribs_e::END) return static_cast<PREC>(NAN);
-    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, std::min(abs(ATTRIBUTE), attribs_e::END-1)>{}, particle_id_in_bin);
+    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, static_cast<unsigned>((ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) <= static_cast<int>(attribs_e::END) - 1 ? (ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) : static_cast<int>(attribs_e::END) - 1)>{}, particle_id_in_bin);
   }
 
   template <typename T>
@@ -897,7 +956,7 @@ struct ParticleBuffer<material_e::JBarFluid>
   getAttribute(const T bin, const T particle_id_in_bin){
     if (ATTRIBUTE < attribs_e::START) return (PREC)ATTRIBUTE;
     else if (ATTRIBUTE >= attribs_e::END) return static_cast<PREC>(NAN);
-    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, std::min(abs(ATTRIBUTE), attribs_e::END-1)>{}, particle_id_in_bin);
+    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, static_cast<unsigned>((ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) <= static_cast<int>(attribs_e::END) - 1 ? (ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) : static_cast<int>(attribs_e::END) - 1)>{}, particle_id_in_bin);
   }
   
   template <typename T = PREC>
@@ -1042,7 +1101,7 @@ struct ParticleBuffer<material_e::FixedCorotated>
   getAttribute(const T bin, const T particle_id_in_bin){
     if (ATTRIBUTE < attribs_e::START) return (PREC)ATTRIBUTE;
     else if (ATTRIBUTE >= attribs_e::END) return static_cast<PREC>(NAN);
-    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, std::min(abs(ATTRIBUTE), attribs_e::END-1)>{}, particle_id_in_bin);
+    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, static_cast<unsigned>((ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) <= static_cast<int>(attribs_e::END) - 1 ? (ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) : static_cast<int>(attribs_e::END) - 1)>{}, particle_id_in_bin);
   }
   
   template <typename T = PREC>
@@ -1164,7 +1223,7 @@ struct ParticleBuffer<material_e::FixedCorotated_ASFLIP>
   getAttribute(const T bin, const T particle_id_in_bin){
     if (ATTRIBUTE < attribs_e::START) return (PREC)ATTRIBUTE;
     else if (ATTRIBUTE >= attribs_e::END) return static_cast<PREC>(NAN);
-    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, std::min(abs(ATTRIBUTE), attribs_e::END-1)>{}, particle_id_in_bin);
+    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, static_cast<unsigned>((ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) <= static_cast<int>(attribs_e::END) - 1 ? (ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) : static_cast<int>(attribs_e::END) - 1)>{}, particle_id_in_bin);
   }
   
   template <typename T = PREC>
@@ -1294,7 +1353,7 @@ struct ParticleBuffer<material_e::FixedCorotated_FBAR>
   getAttribute(const T bin, const T particle_id_in_bin){
     if (ATTRIBUTE < attribs_e::START) return (PREC)ATTRIBUTE;
     else if (ATTRIBUTE >= attribs_e::END) return static_cast<PREC>(NAN);
-    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, std::min(abs(ATTRIBUTE), attribs_e::END-1)>{}, particle_id_in_bin);
+    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, static_cast<unsigned>((ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) <= static_cast<int>(attribs_e::END) - 1 ? (ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) : static_cast<int>(attribs_e::END) - 1)>{}, particle_id_in_bin);
   }
 
   template <typename T>
@@ -1407,7 +1466,7 @@ struct ParticleBuffer<material_e::FixedCorotated_ASFLIP_FBAR>
   getAttribute(const T bin, const T particle_id_in_bin){
     if (ATTRIBUTE < attribs_e::START) return (PREC)ATTRIBUTE;
     else if (ATTRIBUTE >= attribs_e::END) return static_cast<PREC>(NAN);
-    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, std::min(abs(ATTRIBUTE), attribs_e::END-1)>{}, particle_id_in_bin);
+    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, static_cast<unsigned>((ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) <= static_cast<int>(attribs_e::END) - 1 ? (ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) : static_cast<int>(attribs_e::END) - 1)>{}, particle_id_in_bin);
   }
 
   template <typename T = PREC>
@@ -1535,7 +1594,7 @@ struct ParticleBuffer<material_e::NeoHookean>
   getAttribute(const T bin, const T particle_id_in_bin){
     if (ATTRIBUTE < attribs_e::START) return (PREC)ATTRIBUTE;
     else if (ATTRIBUTE >= attribs_e::END) return static_cast<PREC>(NAN);
-    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, std::min(abs(ATTRIBUTE), attribs_e::END-1)>{}, particle_id_in_bin);
+    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, static_cast<unsigned>((ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) <= static_cast<int>(attribs_e::END) - 1 ? (ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) : static_cast<int>(attribs_e::END) - 1)>{}, particle_id_in_bin);
   }
   
   template <typename T = PREC>
@@ -1657,7 +1716,7 @@ struct ParticleBuffer<material_e::NeoHookean_ASFLIP>
   getAttribute(const T bin, const T particle_id_in_bin){
     if (ATTRIBUTE < attribs_e::START) return (PREC)ATTRIBUTE;
     else if (ATTRIBUTE >= attribs_e::END) return static_cast<PREC>(NAN);
-    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, std::min(abs(ATTRIBUTE), attribs_e::END-1)>{}, particle_id_in_bin);
+    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, static_cast<unsigned>((ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) <= static_cast<int>(attribs_e::END) - 1 ? (ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) : static_cast<int>(attribs_e::END) - 1)>{}, particle_id_in_bin);
   }
   
   template <typename T = PREC>
@@ -1787,7 +1846,7 @@ struct ParticleBuffer<material_e::NeoHookean_FBAR>
   getAttribute(const T bin, const T particle_id_in_bin){
     if (ATTRIBUTE < attribs_e::START) return (PREC)ATTRIBUTE;
     else if (ATTRIBUTE >= attribs_e::END) return static_cast<PREC>(NAN);
-    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, std::min(abs(ATTRIBUTE), attribs_e::END-1)>{}, particle_id_in_bin);
+    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, static_cast<unsigned>((ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) <= static_cast<int>(attribs_e::END) - 1 ? (ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) : static_cast<int>(attribs_e::END) - 1)>{}, particle_id_in_bin);
   }
 
   template <typename T>
@@ -1900,7 +1959,7 @@ struct ParticleBuffer<material_e::NeoHookean_ASFLIP_FBAR>
   getAttribute(const T bin, const T particle_id_in_bin){
     if (ATTRIBUTE < attribs_e::START) return (PREC)ATTRIBUTE;
     else if (ATTRIBUTE >= attribs_e::END) return static_cast<PREC>(NAN);
-    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, std::min(abs(ATTRIBUTE), attribs_e::END-1)>{}, particle_id_in_bin);
+    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, static_cast<unsigned>((ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) <= static_cast<int>(attribs_e::END) - 1 ? (ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) : static_cast<int>(attribs_e::END) - 1)>{}, particle_id_in_bin);
   }
 
   template <typename T = int>
@@ -2045,7 +2104,7 @@ struct ParticleBuffer<material_e::Sand> : ParticleBufferImpl<material_e::Sand> {
   getAttribute(const T bin, const T particle_id_in_bin){
     if (ATTRIBUTE < attribs_e::START) return (PREC)ATTRIBUTE;
     else if (ATTRIBUTE >= attribs_e::END) return static_cast<PREC>(NAN);
-    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, std::min(abs(ATTRIBUTE), attribs_e::END-1)>{}, particle_id_in_bin);
+    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, static_cast<unsigned>((ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) <= static_cast<int>(attribs_e::END) - 1 ? (ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) : static_cast<int>(attribs_e::END) - 1)>{}, particle_id_in_bin);
   }
 
   template <typename T>
@@ -2179,7 +2238,7 @@ struct ParticleBuffer<material_e::Sand_ASFLIP> : ParticleBufferImpl<material_e::
   getAttribute(const T bin, const T particle_id_in_bin){
     if (ATTRIBUTE < attribs_e::START) return (PREC)ATTRIBUTE;
     else if (ATTRIBUTE >= attribs_e::END) return static_cast<PREC>(NAN);
-    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, std::min(abs(ATTRIBUTE), attribs_e::END-1)>{}, particle_id_in_bin);
+    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, static_cast<unsigned>((ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) <= static_cast<int>(attribs_e::END) - 1 ? (ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) : static_cast<int>(attribs_e::END) - 1)>{}, particle_id_in_bin);
   }
 
   template <typename T = PREC>
@@ -2328,7 +2387,7 @@ struct ParticleBuffer<material_e::Sand_FBAR> : ParticleBufferImpl<material_e::Sa
   getAttribute(const T bin, const T particle_id_in_bin){
     if (ATTRIBUTE < attribs_e::START) return (PREC)ATTRIBUTE;
     else if (ATTRIBUTE >= attribs_e::END) return static_cast<PREC>(NAN);
-    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, std::min(abs(ATTRIBUTE), attribs_e::END-1)>{}, particle_id_in_bin);
+    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, static_cast<unsigned>((ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) <= static_cast<int>(attribs_e::END) - 1 ? (ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) : static_cast<int>(attribs_e::END) - 1)>{}, particle_id_in_bin);
   }
 
   template <typename T>
@@ -2462,7 +2521,7 @@ struct ParticleBuffer<material_e::Sand_ASFLIP_FBAR> : ParticleBufferImpl<materia
   getAttribute(const T bin, const T particle_id_in_bin){
     if (ATTRIBUTE < attribs_e::START) return (PREC)ATTRIBUTE;
     else if (ATTRIBUTE >= attribs_e::END) return static_cast<PREC>(NAN);
-    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, std::min(abs(ATTRIBUTE), attribs_e::END-1)>{}, particle_id_in_bin);
+    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, static_cast<unsigned>((ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) <= static_cast<int>(attribs_e::END) - 1 ? (ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) : static_cast<int>(attribs_e::END) - 1)>{}, particle_id_in_bin);
   }
 
   template <typename T = PREC>
@@ -2617,7 +2676,7 @@ struct ParticleBuffer<material_e::NACC> : ParticleBufferImpl<material_e::NACC> {
   getAttribute(const T bin, const T particle_id_in_bin){
     if (ATTRIBUTE < attribs_e::START) return (PREC)ATTRIBUTE;
     else if (ATTRIBUTE >= attribs_e::END) return static_cast<PREC>(NAN);
-    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, std::min(abs(ATTRIBUTE), attribs_e::END-1)>{}, particle_id_in_bin);
+    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, static_cast<unsigned>((ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) <= static_cast<int>(attribs_e::END) - 1 ? (ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) : static_cast<int>(attribs_e::END) - 1)>{}, particle_id_in_bin);
   }
 
   template <typename T>
@@ -2759,7 +2818,7 @@ struct ParticleBuffer<material_e::NACC_ASFLIP> : ParticleBufferImpl<material_e::
   getAttribute(const T bin, const T particle_id_in_bin){
     if (ATTRIBUTE < attribs_e::START) return (PREC)ATTRIBUTE;
     else if (ATTRIBUTE >= attribs_e::END) return static_cast<PREC>(NAN);
-    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, std::min(abs(ATTRIBUTE), attribs_e::END-1)>{}, particle_id_in_bin);
+    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, static_cast<unsigned>((ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) <= static_cast<int>(attribs_e::END) - 1 ? (ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) : static_cast<int>(attribs_e::END) - 1)>{}, particle_id_in_bin);
   }
 
   template <typename T = PREC>
@@ -2915,7 +2974,7 @@ struct ParticleBuffer<material_e::NACC_FBAR> : ParticleBufferImpl<material_e::NA
   getAttribute(const T bin, const T particle_id_in_bin){
     if (ATTRIBUTE < attribs_e::START) return (PREC)ATTRIBUTE;
     else if (ATTRIBUTE >= attribs_e::END) return static_cast<PREC>(NAN);
-    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, std::min(abs(ATTRIBUTE), attribs_e::END-1)>{}, particle_id_in_bin);
+    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, static_cast<unsigned>((ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) <= static_cast<int>(attribs_e::END) - 1 ? (ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) : static_cast<int>(attribs_e::END) - 1)>{}, particle_id_in_bin);
   }
 
   template <typename T>
@@ -3056,7 +3115,7 @@ struct ParticleBuffer<material_e::NACC_ASFLIP_FBAR> : ParticleBufferImpl<materia
   getAttribute(const T bin, const T particle_id_in_bin){
     if (ATTRIBUTE < attribs_e::START) return (PREC)ATTRIBUTE;
     else if (ATTRIBUTE >= attribs_e::END) return static_cast<PREC>(NAN);
-    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, std::min(abs(ATTRIBUTE), attribs_e::END-1)>{}, particle_id_in_bin);
+    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, static_cast<unsigned>((ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) <= static_cast<int>(attribs_e::END) - 1 ? (ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) : static_cast<int>(attribs_e::END) - 1)>{}, particle_id_in_bin);
   }
 
   template <typename T = PREC>
@@ -3226,7 +3285,7 @@ struct ParticleBuffer<material_e::CoupledUP> : ParticleBufferImpl<material_e::Co
   getAttribute(const T bin, const T particle_id_in_bin){
     if (ATTRIBUTE < attribs_e::START) return (PREC)ATTRIBUTE;
     else if (ATTRIBUTE >= attribs_e::END) return static_cast<PREC>(NAN);
-    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, std::min(abs(ATTRIBUTE), attribs_e::END-1)>{}, particle_id_in_bin);
+    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, static_cast<unsigned>((ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) <= static_cast<int>(attribs_e::END) - 1 ? (ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) : static_cast<int>(attribs_e::END) - 1)>{}, particle_id_in_bin);
   }
 
   template <typename T = PREC>
@@ -3360,7 +3419,7 @@ struct ParticleBuffer<material_e::Meshed>
   getAttribute(const T bin, const T particle_id_in_bin){
     if (ATTRIBUTE < attribs_e::START) return (PREC)ATTRIBUTE;
     else if (ATTRIBUTE >= attribs_e::END) return static_cast<PREC>(NAN);
-    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, std::min(abs(ATTRIBUTE), attribs_e::END-1)>{}, particle_id_in_bin);
+    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, static_cast<unsigned>((ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) <= static_cast<int>(attribs_e::END) - 1 ? (ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) : static_cast<int>(attribs_e::END) - 1)>{}, particle_id_in_bin);
   }
 
   template <typename T = PREC>
@@ -3458,7 +3517,7 @@ struct ParticleBuffer<material_e::VonMises>
   getAttribute(const T bin, const T particle_id_in_bin){
     if (ATTRIBUTE < attribs_e::START) return (PREC)ATTRIBUTE;
     else if (ATTRIBUTE >= attribs_e::END) return static_cast<PREC>(NAN);
-    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, std::min(abs(ATTRIBUTE), attribs_e::END-1)>{}, particle_id_in_bin);
+    else return this->ch(std::integral_constant<unsigned, 0>{}, bin).val_1d(std::integral_constant<unsigned, static_cast<unsigned>((ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) <= static_cast<int>(attribs_e::END) - 1 ? (ATTRIBUTE < 0 ? -ATTRIBUTE : ATTRIBUTE) : static_cast<int>(attribs_e::END) - 1)>{}, particle_id_in_bin);
   }
   
   template <typename T = PREC>
