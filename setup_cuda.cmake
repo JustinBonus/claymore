@@ -46,7 +46,8 @@ set(CUDA_FOUND ${CMAKE_CUDA_COMPILER})
 
 # --------- Desktop PC - RTX 4060 ti 16GB GPU (Arch = Ada, CC = 8.9) - UW Seattle / UC Berkeley - Justin Bonus
 # set(TARGET_CUDA_ARCH --gpu-architecture=compute_89 --gpu-code=compute_89,sm_89)
-set(TARGET_CUDA_ARCH -arch=sm_89)
+#set(TARGET_CUDA_ARCH -arch=sm_89)
+set(TARGET_CUDA_ARCH "-gencode=arch=compute_61,code=sm_61;-gencode=arch=compute_75,code=sm_75;-gencode=arch=compute_86,code=sm_86;-gencode=arch=compute_89,code=[sm_89,compute_89]")
 
 # --------- ACCESS ACES - NVIDIA H100 80GB (Arch = Hopper, CC = 9.0) - Texas A&M University - Justin Bonus
 # set(TARGET_CUDA_ARCH --gpu-architecture=compute_90 --gpu-code=compute_90,sm_90)
@@ -59,7 +60,9 @@ set(TARGET_CUDA_ARCH -arch=sm_89)
 # The native keyword auto detects the GPU arch. XY value, won't work if compiling without active GPU (e.g. an HPC's non-GPU login node).
 # I recommend setting CMAKE_CUDA_ARCHITECTURES manually as XY, which is the compute capability number without the decimal point.
 # 1060 Max-Q = 61, RTX 2080 ti / Quadro 5000 = 75, A100 = 80, RTX 4060 ti = 89, H100 = 90
-set(CMAKE_CUDA_ARCHITECTURES 89)
+#set(CMAKE_CUDA_ARCHITECTURES 89)
+set(CMAKE_CUDA_ARCHITECTURES 61-real;61-virtual;75-real;75-virtual;86-real;86-virtual;89-real;89-virtual)
+
 # set(CMAKE_CUDA_ARCHITECTURES native)
 message("-- NVIDIA CUDA GPU detected [" ${CMAKE_CUDA_ARCHITECTURES} ", ${TARGET_CUDA_ARCH}]\t compute-capability number and architecture label with CMake.")
 
