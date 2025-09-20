@@ -3812,13 +3812,13 @@ struct ParticleAttrib: Instance<particle_attrib_<N>> {
    __device__ PREC
   getAttribute(T parid){
     if (ATTRIBUTE >= N) return (PREC)-1;
-    else return this->val(std::integral_constant<unsigned, std::min(ATTRIBUTE, N)>{}, parid);
+    else return this->val(std::integral_constant<unsigned, std::min(static_cast<unsigned>(ATTRIBUTE), static_cast<unsigned>(N))>{}, parid);
   }
   template <num_attribs_e ATTRIBUTE, typename T>
    __device__ void
   getAttribute(T parid, PREC & val){
     if (ATTRIBUTE >= N) val = (PREC)-1;
-    else val = this->val(std::integral_constant<unsigned, std::min(ATTRIBUTE, N)>{}, parid);
+    else return this->val(std::integral_constant<unsigned, std::min(static_cast<unsigned>(ATTRIBUTE), static_cast<unsigned>(N))>{}, parid);
   }
   // template <num_attribs_e ATTRIBUTE, typename T>
   //  __device__ constexpr void
