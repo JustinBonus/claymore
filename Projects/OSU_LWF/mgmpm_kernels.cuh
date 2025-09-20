@@ -2123,7 +2123,7 @@ __global__ void update_grid_velocity_query_max(uint32_t blockCount, Grid grid,
                       // Normalize distance vector
                       PREC_G norm = 0.f;
                       for (int i = 0; i < 3; i++) norm += dist[i] * dist[i];
-                      const PREC_G small = 1e-6f; // Small value to prevent division by zero
+                      const PREC_G little = 1e-6f; // little value to prevent division by zero
                       norm = sqrt(norm);
                       if (norm > 0.f) for (int i = 0; i < 3; i++) dist[i] /= norm; 
                       
